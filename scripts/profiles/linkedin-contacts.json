@@ -1,0 +1,21 @@
+{
+  "name": "LinkedIn - export de contacts (Most Probable Phone Number)",
+  "fields": {
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "title": "Title",
+    "accountName": "Company",
+    "country": "Location"
+  },
+  "phones": [
+    "Most Probable Phone Number",
+    "All Mobile Phone Numbers",
+    "Invalid or Landline Phones"
+  ],
+  "emails": [],
+  "constants": {
+    "source": "LinkedIn",
+    "status": "Cold"
+  },
+  "dedupe": ["LinkedIn Profile"]
+}

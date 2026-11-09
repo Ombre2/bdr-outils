@@ -1,0 +1,8 @@
+Prénom;Nom;Poste;Email;Téléphone;Mobile;Entreprise;Statut;Pays;Ville;Fuseau;Description
+Awa;Koné;DRH;awa.kone@acme-exemple.com;+225 07 00 00 00 01;;Acme Exemple;Cold;Côte d'Ivoire;Abidjan;;Contact de test
+Jean;Rakoto;Directeur achats;jean.rakoto@beta-exemple.mg;034 12 345 67;;Beta Exemple;en cours;Madagascar;Antananarivo;;Numéro local : normalisé
+Sara;Diop;;sara.diop@gamma-exemple.sn;;+221 77 123 45 67;Gamma Exemple;Statut inconnu;Sénégal;Dakar;;Statut corrigé en Cold
+Paul;Martin;CTO;paul.martin@delta-exemple.fr;01 23 45 67 89;;Delta Exemple;Qualifié;France;Paris;Europe/Paris;
+Awa;Koné;DRH;awa.kone@acme-exemple.com;+225 07 00 00 00 01;;Acme Exemple;Cold;Côte d'Ivoire;Abidjan;;Doublon volontaire
+;Sans Prénom;;sans.prenom@exemple.com;+33 6 00 00 00 00;;;;;;;Ligne rejetée : prénom manquant
+Lucie;Test;;email-invalide;12;;Epsilon Exemple;;;;;Ligne rejetée si aucun contact valide

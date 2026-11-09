@@ -1,0 +1,379 @@
+rules_version = '2';
+
+// BDR Outils : Firestore Security Rules (plan Spark, connexion Google).
+// Principe : deny-by-default. Accès = compte Google vérifié + liste blanche par email + propriétaire (uid).
+// La 2FA est celle du compte Google (Workspace), non vérifiable dans les règles sur Spark.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Fonctions utilitaires ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Connexion Google uniquement, adresse vérifiée par Google
+    function isVerifiedGoogleAccount() {
+      return request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    // Liste blanche indexée par email en minuscules
+    function isAllowedUser() {
+      return exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email.lower()));
+    }
+
+    // Porte d'entrée unique : session Google vérifiée + liste blanche
+    // NB : la 2FA est celle du compte Google, elle n'est pas vérifiable ici.
+    function isAuthorized() {
+      return isSignedIn() && isVerifiedGoogleAccount() && isAllowedUser();
+    }
+
+    function isOwner(data) {
+      return data.ownerId == request.auth.uid;
+    }
+
+    function isString(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+
+    function isOptionalString(v, max) {
+      return v == null || (v is string && v.size() <= max);
+    }
+
+    function isOptionalCountry(v) {
+      return v == null || (v is string && v.matches('^[A-Z]{2}$'));
+    }
+
+    function isOptionalTimezone(v) {
+      return v == null || (v is string && v.size() >= 3 && v.size() <= 40);
+    }
+
+    function isOptionalLinkedin(v) {
+      return v == null || (v is string && v.size() <= 300 && v.matches('^https://(www\\.)?linkedin\\.com/[^\\s]+$'));
+    }
+
+    function isOptionalTimestamp(v) {
+      return v == null || v is timestamp;
+    }
+
+    function isOptionalE164(v) {
+      return v == null || (v is string && v.matches('^\\+[1-9][0-9]{6,14}$'));
+    }
+
+    function isOptionalUrl(v) {
+      return v == null || (v is string && v.size() <= 300 && v.matches('^https://[^\\s]+$'));
+    }
+
+    function isOptionalEmail(v) {
+      return v == null || (v is string && v.size() <= 254 && v.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$'));
+    }
+
+    function isOptionalCadenceStep(v) {
+      return v == null || (v is int && v >= 0 && v <= 20);
+    }
+
+    function isCreatedAndUpdatedNow(d) {
+      return d.createdAt == request.time && d.updatedAt == request.time;
+    }
+
+    // ---------- Liste blanche des utilisateurs ----------
+    // Lecture de sa propre entrée uniquement. Écriture interdite côté client (console uniquement).
+    match /allowedUsers/{email} {
+      allow read: if isAuthorized() && email == request.auth.token.email.lower();
+      allow write: if false;
+    }
+
+    // ---------- Comptes ----------
+    match /accounts/{accountId} {
+      allow read: if isAuthorized() && isOwner(resource.data);
+
+      allow create: if isAuthorized()
+        && isOwner(request.resource.data)
+        && request.resource.data.keys().hasOnly([
+          'ownerId', 'name', 'website', 'industry', 'headcount', 'description', 'source',
+          'country', 'city', 'timezone', 'searchName', 'createdAt', 'updatedAt'])
+        && isString(request.resource.data.name, 1, 120)
+        && isOptionalUrl(request.resource.data.website)
+        && isOptionalString(request.resource.data.get('source', null), 120)
+        && isOptionalString(request.resource.data.industry, 100)
+        && isOptionalString(request.resource.data.description, 2000)
+        && isOptionalString(request.resource.data.city, 80)
+        && isOptionalCountry(request.resource.data.country)
+        && isOptionalTimezone(request.resource.data.timezone)
+        && isOptionalString(request.resource.data.get('headcount', null), 40)
+        && isString(request.resource.data.searchName, 0, 120)
+        && isCreatedAndUpdatedNow(request.resource.data);
+
+      allow update: if isAuthorized()
+        && isOwner(resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.keys().hasOnly([
+          'ownerId', 'name', 'website', 'industry', 'headcount', 'description', 'source',
+          'country', 'city', 'timezone', 'searchName', 'createdAt', 'updatedAt'])
+        && isString(request.resource.data.name, 1, 120)
+        && isOptionalUrl(request.resource.data.website)
+        && isOptionalString(request.resource.data.get('source', null), 120)
+        && isOptionalString(request.resource.data.industry, 100)
+        && isOptionalString(request.resource.data.description, 2000)
+        && isOptionalString(request.resource.data.city, 80)
+        && isOptionalCountry(request.resource.data.country)
+        && isOptionalTimezone(request.resource.data.timezone)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if isAuthorized() && isOwner(resource.data);
+    }
+
+    // ---------- Contacts ----------
+    match /contacts/{contactId} {
+      allow read: if isAuthorized() && isOwner(resource.data);
+
+      allow create: if isAuthorized()
+        && isOwner(request.resource.data)
+        && request.resource.data.keys().hasOnly([
+          'ownerId', 'accountId', 'accountName', 'firstName', 'lastName', 'title',
+          'email', 'linkedinUrl', 'description', 'source', 'status', 'country', 'city', 'timezone',
+          'nextReminderAt', 'lastCallAt', 'statusChangedAt', 'createdAt', 'updatedAt',
+          'cadenceId', 'cadenceStartedAt', 'cadenceStep'])
+        && isString(request.resource.data.firstName, 1, 80)
+        && isString(request.resource.data.lastName, 1, 80)
+        && isOptionalString(request.resource.data.title, 120)
+        && isOptionalEmail(request.resource.data.email)
+        && isOptionalLinkedin(request.resource.data.get('linkedinUrl', null))
+        && isOptionalString(request.resource.data.get('source', null), 120)
+        && isOptionalString(request.resource.data.description, 2000)
+        && isOptionalString(request.resource.data.accountName, 120)
+        && isOptionalCountry(request.resource.data.country)
+        && isOptionalString(request.resource.data.city, 80)
+        && isOptionalTimezone(request.resource.data.timezone)
+        && request.resource.data.status in
+             ['Cold', 'En cours', 'Qualifié', 'Disqualifié', 'Ne plus contacter']
+        && isOptionalTimestamp(request.resource.data.nextReminderAt)
+        && isOptionalTimestamp(request.resource.data.lastCallAt)
+        && isOptionalTimestamp(request.resource.data.get('cadenceStartedAt', null))
+        && isOptionalCadenceStep(request.resource.data.get('cadenceStep', 0))
+        && isOptionalString(request.resource.data.get('cadenceId', null), 40)
+        && request.resource.data.statusChangedAt == request.time
+        && isCreatedAndUpdatedNow(request.resource.data);
+
+      allow update: if isAuthorized()
+        && isOwner(resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.keys().hasOnly([
+          'ownerId', 'accountId', 'accountName', 'firstName', 'lastName', 'title',
+          'email', 'linkedinUrl', 'description', 'source', 'status', 'country', 'city', 'timezone',
+          'nextReminderAt', 'lastCallAt', 'statusChangedAt', 'createdAt', 'updatedAt',
+          'cadenceId', 'cadenceStartedAt', 'cadenceStep'])
+        && isString(request.resource.data.firstName, 1, 80)
+        && isString(request.resource.data.lastName, 1, 80)
+        && isOptionalString(request.resource.data.title, 120)
+        && isOptionalEmail(request.resource.data.email)
+        && isOptionalLinkedin(request.resource.data.get('linkedinUrl', null))
+        && isOptionalString(request.resource.data.get('source', null), 120)
+        && isOptionalString(request.resource.data.description, 2000)
+        && isOptionalCountry(request.resource.data.country)
+        && isOptionalString(request.resource.data.city, 80)
+        && isOptionalTimezone(request.resource.data.timezone)
+        && request.resource.data.status in
+             ['Cold', 'En cours', 'Qualifié', 'Disqualifié', 'Ne plus contacter']
+        && isOptionalTimestamp(request.resource.data.nextReminderAt)
+        && isOptionalTimestamp(request.resource.data.lastCallAt)
+        && isOptionalTimestamp(request.resource.data.get('cadenceStartedAt', null))
+        && isOptionalCadenceStep(request.resource.data.get('cadenceStep', 0))
+        && isOptionalString(request.resource.data.get('cadenceId', null), 40)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        // statusChangedAt ne change que si le statut change
+        && (request.resource.data.status == resource.data.status
+            ? request.resource.data.statusChangedAt == resource.data.statusChangedAt
+            : request.resource.data.statusChangedAt == request.time);
+
+      allow delete: if isAuthorized() && isOwner(resource.data);
+
+      // ---------- Historique des statuts (journal, non modifiable) ----------
+      match /statusHistory/{changeId} {
+        function parentOwnedByCaller() {
+          return get(/databases/$(database)/documents/contacts/$(contactId)).data.ownerId == request.auth.uid;
+        }
+
+        allow read: if isAuthorized() && isOwner(resource.data);
+
+        allow create: if isAuthorized()
+          && isOwner(request.resource.data)
+          && parentOwnedByCaller()
+          && request.resource.data.keys().hasOnly([
+            'ownerId', 'fromStatus', 'toStatus', 'reason', 'changedAt', 'createdAt'])
+          && (request.resource.data.fromStatus == null
+              || request.resource.data.fromStatus in ['Cold', 'En cours', 'Qualifié', 'Disqualifié', 'Ne plus contacter'])
+          && request.resource.data.toStatus in ['Cold', 'En cours', 'Qualifié', 'Disqualifié', 'Ne plus contacter']
+          && isOptionalString(request.resource.data.reason, 500)
+          && request.resource.data.changedAt == request.time
+          && request.resource.data.createdAt == request.time;
+
+        allow update: if false;
+        allow delete: if isAuthorized() && isOwner(resource.data);
+      }
+
+      // ---------- Numéros de téléphone (sous-collection) ----------
+      // Validation par document : format E.164, libellé dans une liste fermée.
+      // La limite de 5 numéros par contact est appliquée dans le repository (transaction).
+      match /phones/{phoneId} {
+        function parentOwnedByCaller() {
+          return get(/databases/$(database)/documents/contacts/$(contactId)).data.ownerId == request.auth.uid;
+        }
+
+        allow read: if isAuthorized() && isOwner(resource.data);
+
+        allow create: if isAuthorized()
+          && isOwner(request.resource.data)
+          && parentOwnedByCaller()
+          && request.resource.data.keys().hasOnly([
+            'ownerId', 'number', 'label', 'isPrimary', 'createdAt', 'updatedAt'])
+          && isOptionalE164(request.resource.data.number)
+          && request.resource.data.number != null
+          && request.resource.data.label in ['Mobile', 'Bureau', 'Standard', 'Direct', 'Autre']
+          && request.resource.data.isPrimary is bool
+          && isCreatedAndUpdatedNow(request.resource.data);
+
+        allow update: if isAuthorized()
+          && isOwner(resource.data)
+          && parentOwnedByCaller()
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.keys().hasOnly([
+            'ownerId', 'number', 'label', 'isPrimary', 'createdAt', 'updatedAt'])
+          && isOptionalE164(request.resource.data.number)
+          && request.resource.data.number != null
+          && request.resource.data.label in ['Mobile', 'Bureau', 'Standard', 'Direct', 'Autre']
+          && request.resource.data.isPrimary is bool
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if isAuthorized() && isOwner(resource.data);
+      }
+
+      // ---------- Emails (sous-collection) ----------
+      // Validation par document : format et indicateur principal.
+      match /emails/{emailId} {
+        function parentOwnedByCaller() {
+          return get(/databases/$(database)/documents/contacts/$(contactId)).data.ownerId == request.auth.uid;
+        }
+
+        allow read: if isAuthorized() && isOwner(resource.data);
+
+        allow create: if isAuthorized()
+          && isOwner(request.resource.data)
+          && parentOwnedByCaller()
+          && request.resource.data.keys().hasOnly(['ownerId', 'address', 'isPrimary', 'createdAt', 'updatedAt'])
+          && isString(request.resource.data.address, 3, 254)
+          && request.resource.data.address.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+          && request.resource.data.isPrimary is bool
+          && isCreatedAndUpdatedNow(request.resource.data);
+
+        // Emails remplacés en bloc (suppression puis création) : pas de modification directe
+        allow update: if false;
+
+        allow delete: if isAuthorized() && isOwner(resource.data);
+      }
+    }
+
+    // Requêtes collectionGroup sur les numéros (Omnisearch, Ma Journée)
+    match /{path=**}/phones/{phoneId} {
+      allow read: if isAuthorized() && isOwner(resource.data);
+    }
+
+    // Requêtes collectionGroup sur les emails (Omnisearch, import, export)
+    match /{path=**}/emails/{emailId} {
+      allow read: if isAuthorized() && isOwner(resource.data);
+    }
+
+    // ---------- Appels (journal, non modifiable) ----------
+    match /calls/{callId} {
+      allow read: if isAuthorized() && isOwner(resource.data);
+
+      allow create: if isAuthorized()
+        && isOwner(request.resource.data)
+        && request.resource.data.keys().hasOnly([
+          'ownerId', 'contactId', 'accountId', 'calledAt', 'calledPhone',
+          'outcome', 'notes', 'nextReminderAt', 'createdAt'])
+        && request.resource.data.outcome in
+             ['NPR', 'Messagerie', 'Mauvais numéro', 'Dead', 'Not good Contact', 'Nurturing', 'R1', 'No Show', 'Argumenté', 'Rappel demandé', 'RDV pris', 'Refus']
+        && isOptionalE164(request.resource.data.calledPhone)
+        && isOptionalString(request.resource.data.notes, 5000)
+        && isOptionalTimestamp(request.resource.data.nextReminderAt)
+        && request.resource.data.calledAt is timestamp
+        && request.resource.data.createdAt == request.time;
+
+      // Correction d'un appel : seuls le résultat, le numéro, la date et les notes changent (pas le contact ni la création).
+      allow update: if isAuthorized()
+        && isOwner(resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.contactId == resource.data.contactId
+        && request.resource.data.accountId == resource.data.accountId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.keys().hasOnly([
+          'ownerId', 'contactId', 'accountId', 'calledAt', 'calledPhone',
+          'outcome', 'notes', 'nextReminderAt', 'createdAt', 'editedAt'])
+        && request.resource.data.outcome in
+             ['NPR', 'Messagerie', 'Mauvais numéro', 'Dead', 'Not good Contact', 'Nurturing', 'R1', 'No Show', 'Argumenté', 'Rappel demandé', 'RDV pris', 'Refus']
+        && isOptionalE164(request.resource.data.calledPhone)
+        && isOptionalString(request.resource.data.notes, 5000)
+        && isOptionalTimestamp(request.resource.data.nextReminderAt)
+        && request.resource.data.calledAt is timestamp
+        && request.resource.data.editedAt == request.time;
+      allow delete: if isAuthorized() && isOwner(resource.data);
+    }
+
+    // ---------- Autres actions (email, LinkedIn, autre) sur un contact ----------
+    // Création et suppression seulement : pas de modification.
+    match /activities/{activityId} {
+      allow read: if isAuthorized() && isOwner(resource.data);
+
+      allow create: if isAuthorized()
+        && isOwner(request.resource.data)
+        && get(/databases/$(database)/documents/contacts/$(request.resource.data.contactId)).data.ownerId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'ownerId', 'contactId', 'accountId', 'type', 'occurredAt', 'notes', 'createdAt'])
+        && request.resource.data.type in ['Email envoyé', 'Message LinkedIn', 'Demande de connexion LinkedIn', 'Autre']
+        && isOptionalString(request.resource.data.get('accountId', null), 40)
+        && isOptionalString(request.resource.data.notes, 2000)
+        && request.resource.data.occurredAt is timestamp
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if false;
+      allow delete: if isAuthorized() && isOwner(resource.data);
+    }
+
+    // ---------- Cadences (suites d'étapes réutilisables) ----------
+    match /cadences/{cadenceId} {
+      allow read: if isAuthorized() && isOwner(resource.data);
+
+      allow create: if isAuthorized()
+        && isOwner(request.resource.data)
+        && request.resource.data.keys().hasOnly(['ownerId', 'name', 'steps', 'createdAt', 'updatedAt'])
+        && isString(request.resource.data.name, 1, 120)
+        && request.resource.data.steps is list
+        && request.resource.data.steps.size() >= 1
+        && request.resource.data.steps.size() <= 20
+        && isCreatedAndUpdatedNow(request.resource.data);
+
+      allow update: if isAuthorized()
+        && isOwner(resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.keys().hasOnly(['ownerId', 'name', 'steps', 'createdAt', 'updatedAt'])
+        && isString(request.resource.data.name, 1, 120)
+        && request.resource.data.steps is list
+        && request.resource.data.steps.size() >= 1
+        && request.resource.data.steps.size() <= 20
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if isAuthorized() && isOwner(resource.data);
+    }
+
+    // ---------- Tout le reste est refusé ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
