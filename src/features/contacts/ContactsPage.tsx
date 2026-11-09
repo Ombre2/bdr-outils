@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { PhoneCall, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +28,7 @@ export function ContactsPage() {
   const [rdvByContact, setRdvByContact] = useState<Map<string, Date>>(new Map()) // dernier RDV pris par contact
   const [rdvReloadKey, setRdvReloadKey] = useState(0)
   const [accountSort, setAccountSort] = useState<'asc' | 'desc'>('asc')
+  const [hideUpcoming, setHideUpcoming] = useState(false) // masque les contacts avec un RDV encore à venir
   const [filter, setFilter] = useState('')
   // Filtres à choix multiples : liste vide = pas de filtre
   const [statuses, setStatuses] = useState<string[]>([])
@@ -75,9 +76,32 @@ export function ContactsPage() {
     return new Set(phones.filter((p) => phoneDigits(p.number).includes(digits)).map((p) => p.contactId))
   }, [phones, filter])
 
+  // Compte d'un contact, identifié par son nom (les doublons de compte issus d'imports ont des identifiants différents)
+  const accountKeyOf = useCallback(
+    (c: Contact) => normalizeText(accountById(c.accountId)?.name ?? c.accountName ?? ''),
+    [accountById],
+  )
+
+  // Comptes ayant au moins un RDV encore à venir (tous leurs contacts sont alors masqués si le filtre est actif)
+  const accountsWithUpcomingRdv = useMemo(() => {
+    const keys = new Set<string>()
+    for (const c of contacts) {
+      const rdv = rdvByContact.get(c.id)
+      const key = normalizeText(accountById(c.accountId)?.name ?? c.accountName ?? '')
+      if (key && rdv && rdv.getTime() >= now.getTime()) keys.add(key)
+    }
+    return keys
+  }, [contacts, rdvByContact, now, accountById])
+
   const rows = useMemo(() => {
     const q = normalizeText(filter)
     return contacts.filter((c) => {
+      if (hideUpcoming) {
+        const rdv = rdvByContact.get(c.id)
+        if (rdv && rdv.getTime() >= now.getTime()) return false // le contact a un RDV à venir
+        const key = accountKeyOf(c)
+        if (key && accountsWithUpcomingRdv.has(key)) return false // un collègue du même compte a un RDV à venir
+      }
       if (statuses.length > 0 && !statuses.includes(c.status)) return false
       if (countries.length > 0 && !(c.country && countries.includes(c.country))) return false
       if (sources.length > 0 && !(c.source && sources.includes(c.source))) return false
@@ -93,7 +117,7 @@ export function ContactsPage() {
       )
       return (q !== '' && haystack.includes(q)) || (phoneMatchIds?.has(c.id) ?? false)
     })
-  }, [contacts, filter, statuses, countries, sources, industries, owners, phoneMatchIds, accountById])
+  }, [contacts, filter, statuses, countries, sources, industries, owners, phoneMatchIds, accountById, hideUpcoming, rdvByContact, now, accountsWithUpcomingRdv, accountKeyOf])
 
   // Tri par compte : les contacts d'un même compte se suivent. Sans compte : en bas de liste.
   const sortedRows = useMemo(() => {
@@ -131,7 +155,7 @@ export function ContactsPage() {
       ),
     [contacts, accountById],
   )
-  const filtersActive = Boolean(filter || statuses.length || countries.length || sources.length || industries.length || owners.length)
+  const filtersActive = Boolean(filter || statuses.length || countries.length || sources.length || industries.length || owners.length || hideUpcoming)
 
   function resetFilters() {
     setFilter('')
@@ -140,6 +164,7 @@ export function ContactsPage() {
     setSources([])
     setIndustries([])
     setOwners([])
+    setHideUpcoming(false)
     setPage(1)
   }
 
@@ -230,6 +255,19 @@ export function ContactsPage() {
             setPage(1)
           }}
         />
+        {!teamView && (
+          <Button
+            variant={hideUpcoming ? 'default' : 'outline'}
+            size="sm"
+            aria-pressed={hideUpcoming}
+            onClick={() => {
+              setHideUpcoming((v) => !v)
+              setPage(1)
+            }}
+          >
+            {hideUpcoming ? 'Comptes avec RDV masqués' : 'Masquer les comptes avec RDV à venir'}
+          </Button>
+        )}
         {filtersActive && (
           <Button variant="ghost" size="sm" onClick={resetFilters}>
             Réinitialiser
