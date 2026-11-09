@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -81,12 +81,12 @@ export function EditCallDialog({ open, onOpenChange, call, phones, onSaved }: Pr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 sm:max-w-md">
+        <DialogHeader className="border-b px-6 py-4 pr-12">
           <DialogTitle>Corriger l’appel</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <DialogBody className="space-y-4">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Résultat</Label>
             <FormSelect
@@ -125,9 +125,9 @@ export function EditCallDialog({ open, onOpenChange, call, phones, onSaved }: Pr
             <Label className="text-xs text-muted-foreground">Notes</Label>
             <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value.slice(0, 5000))} />
           </div>
-        </div>
+        </DialogBody>
 
-        <DialogFooter>
+        <DialogFooter className="border-t px-6 py-4">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>

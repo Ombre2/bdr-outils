@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -191,12 +191,13 @@ export function ContactDialog({ open, onOpenChange, ownerId, contact, onSaved }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b px-6 py-4 pr-12">
           <DialogTitle>{contact ? 'Modifier le contact' : 'Nouveau contact'}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-4 gap-y-3" noValidate>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col" noValidate>
+          <DialogBody className="grid grid-cols-2 gap-x-4 gap-y-3">
           <Field label="Prénom *" error={errors.firstName}>
             <Input value={values.firstName} onChange={(e) => set('firstName', e.target.value)} autoFocus />
           </Field>
@@ -326,7 +327,9 @@ export function ContactDialog({ open, onOpenChange, ownerId, contact, onSaved }:
             <Textarea rows={3} value={values.description} onChange={(e) => set('description', e.target.value)} />
           </Field>
 
-          <DialogFooter className="col-span-2">
+          </DialogBody>
+
+          <DialogFooter className="border-t px-6 py-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuler
             </Button>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -180,12 +180,12 @@ function CadenceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b px-6 py-4 pr-12">
           <DialogTitle>{cadence ? 'Modifier la cadence' : 'Nouvelle cadence'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <DialogBody className="space-y-4">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground" htmlFor="cadence-name">Nom</Label>
             <Input id="cadence-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="ex. Séquence Afrique de l’Ouest" />
@@ -242,9 +242,9 @@ function CadenceDialog({
               <Plus className="size-4" aria-hidden /> Ajouter une étape
             </Button>
           </div>
-        </div>
+        </DialogBody>
 
-        <DialogFooter>
+        <DialogFooter className="border-t px-6 py-4">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>

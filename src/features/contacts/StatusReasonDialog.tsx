@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { ContactStatus } from '@/types/models'
@@ -35,11 +35,11 @@ export function StatusReasonDialog({ open, onOpenChange, status, required, onCon
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 sm:max-w-md">
+        <DialogHeader className="border-b px-6 py-4 pr-12">
           <DialogTitle>Passer en « {status} »</DialogTitle>
         </DialogHeader>
-        <div className="space-y-1.5">
+        <DialogBody className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">{required ? 'Motif *' : 'Motif (facultatif)'}</Label>
           <Textarea
             rows={3}
@@ -50,8 +50,8 @@ export function StatusReasonDialog({ open, onOpenChange, status, required, onCon
             autoFocus
           />
           {error && <p className="text-xs text-destructive">{error}</p>}
-        </div>
-        <DialogFooter>
+        </DialogBody>
+        <DialogFooter className="border-t px-6 py-4">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
