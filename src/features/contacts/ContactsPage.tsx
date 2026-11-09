@@ -14,7 +14,7 @@ import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { callHref, formatPhone, phoneDigits } from '@/lib/phone'
 import { formatDateTime, localTimeLabel } from '@/lib/time'
 import { listRdvCallsForOwner } from '@/services/calls.repo'
-import { normalizeText } from '@/lib/text'
+import { normalizeText, safeLinkedinUrl } from '@/lib/text'
 import { countryLabel } from '@/lib/geo'
 import { CONTACT_STATUSES, type Contact } from '@/types/models'
 
@@ -305,8 +305,23 @@ export function ContactsPage() {
               return (
                 <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/contacts/${c.id}`)}>
                   <TableCell className="max-w-[260px]">
-                    <p className="font-medium">
-                      {c.firstName} {c.lastName}
+                    <p className="flex items-center gap-1.5 font-medium">
+                      <span>
+                        {c.firstName} {c.lastName}
+                      </span>
+                      {safeLinkedinUrl(c.linkedinUrl) && (
+                        <a
+                          href={safeLinkedinUrl(c.linkedinUrl)!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={stop}
+                          title="Ouvrir le profil LinkedIn"
+                          aria-label={`Profil LinkedIn de ${c.firstName} ${c.lastName}`}
+                          className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm bg-[#0A66C2] text-[10px] font-bold leading-none text-white hover:opacity-80"
+                        >
+                          in
+                        </a>
+                      )}
                     </p>
                     {c.title && <p className="truncate text-xs text-muted-foreground">{c.title}</p>}
                     {rdvByContact.has(c.id) && (
