@@ -13,7 +13,7 @@ import { CadenceInputError, deleteCadence, saveCadence } from '@/services/cadenc
 import { CADENCE_CHANNELS, MAX_CADENCE_STEPS, type Cadence, type CadenceChannel } from '@/types/models'
 
 export function CadencesPage() {
-  const { cadences, contacts, refresh, loading } = useDirectory()
+  const { cadences, contacts, refresh, loading, teamView } = useDirectory()
   const { user } = useAuth()
   const [editing, setEditing] = useState<Cadence | 'new' | null>(null)
 
@@ -53,9 +53,11 @@ export function CadencesPage() {
             « faite » une fois réalisée.
           </p>
         </div>
-        <Button onClick={() => setEditing('new')}>
-          <Plus className="size-4" aria-hidden /> Nouvelle cadence
-        </Button>
+        {!teamView && (
+          <Button onClick={() => setEditing('new')}>
+            <Plus className="size-4" aria-hidden /> Nouvelle cadence
+          </Button>
+        )}
       </header>
 
       <div className="rounded-md border border-border">
@@ -70,7 +72,7 @@ export function CadencesPage() {
           </TableHeader>
           <TableBody>
             {cadences.map((c) => (
-              <TableRow key={c.id} className="cursor-pointer" onClick={() => setEditing(c)}>
+              <TableRow key={c.id} className="cursor-pointer" onClick={() => !teamView && setEditing(c)}>
                 <TableCell className="font-medium">{c.name}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {c.steps.length} étape(s) · {c.steps.map((s) => s.channel).join(' → ')}

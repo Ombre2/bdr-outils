@@ -2,7 +2,12 @@ import { onAuthStateChanged, type User } from 'firebase/auth'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { auth } from '@/services/firebase'
-import { hasVerifiedGoogleSession, isAllowlisted, logout as doLogout } from '@/services/auth.service'
+import {
+  getAllowlistRole,
+  hasVerifiedGoogleSession,
+  logout as doLogout,
+  saveUserDirectoryEntry,
+} from '@/services/auth.service'
 
 export type AuthStatus =
   | 'loading'
@@ -12,10 +17,15 @@ export type AuthStatus =
 interface AuthContextValue {
   status: AuthStatus
   user: User | null
+  /** Admin : lecture seule sur les données de toute l'équipe (rôle « admin » dans la liste blanche). */
+  isAdmin: boolean
   logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+
+// Rôle admin par défaut : aucun droit d'écriture (les règles le refusent aussi)
+const ADMIN_ROLE = 'admin'
 
 // Déconnexion automatique après inactivité (données sensibles)
 const IDLE_LIMIT_MS = 15 * 60 * 1000
@@ -24,6 +34,7 @@ const ACTIVITY_EVENTS = ['pointerdown', 'keydown', 'mousemove', 'scroll'] as con
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading')
   const [user, setUser] = useState<User | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -33,15 +44,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!current) {
         setUser(null)
+        setIsAdmin(false)
         setStatus('signed-out')
         return
       }
 
       const verified = await hasVerifiedGoogleSession(current)
-      const allowed = verified && current.email != null && (await isAllowlisted(current.email))
+      const role = verified && current.email != null ? await getAllowlistRole(current.email) : null
 
-      if (allowed) {
+      if (role !== null && current.email) {
+        // Annuaire mis à jour à chaque connexion : l'admin y retrouve le nom du propriétaire
+        try {
+          await saveUserDirectoryEntry(current.uid, current.email)
+        } catch {
+          // Non bloquant : l'annuaire sera mis à jour à la prochaine connexion
+        }
         setUser(current)
+        setIsAdmin(role === ADMIN_ROLE)
         setStatus('authorized')
       } else {
         toast.error('Accès non autorisé pour ce compte.')
@@ -80,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [status])
 
-  const value = useMemo(() => ({ status, user, logout }), [status, user, logout])
+  const value = useMemo(() => ({ status, user, isAdmin, logout }), [status, user, isAdmin, logout])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

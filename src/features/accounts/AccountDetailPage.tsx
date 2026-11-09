@@ -21,7 +21,7 @@ export function AccountDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { accountById, contacts, refresh, loading } = useDirectory()
+  const { accountById, contacts, refresh, loading, teamView, ownerEmail } = useDirectory()
   const [editing, setEditing] = useState(false)
   // Onglets ouverts : l'onglet « Compte » plus un onglet par contact ouvert
   const [openContactIds, setOpenContactIds] = useState<string[]>([])
@@ -88,14 +88,19 @@ export function AccountDetailPage() {
           <p className="text-sm text-muted-foreground">
             {[account.industry, countryLabel(account.country), account.city].filter(Boolean).join(' · ') || '—'}
           </p>
+          {teamView && <p className="text-sm text-muted-foreground">Propriétaire : {ownerEmail(account.ownerId) ?? '—'}</p>}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-            <Pencil className="size-4" aria-hidden /> Modifier
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => void handleDelete()} aria-label="Supprimer le compte">
-            <Trash2 className="size-4" aria-hidden />
-          </Button>
+          {!teamView && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                <Pencil className="size-4" aria-hidden /> Modifier
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void handleDelete()} aria-label="Supprimer le compte">
+                <Trash2 className="size-4" aria-hidden />
+              </Button>
+            </>
+          )}
         </div>
       </header>
 
@@ -194,7 +199,7 @@ export function AccountDetailPage() {
 
           <div className="space-y-3">
             <h2 className="text-sm font-medium">Historique des appels</h2>
-            <CallTimeline ownerId={user?.uid ?? ''} accountId={account.id} reloadKey={0} showContact />
+            <CallTimeline ownerId={account.ownerId} accountId={account.id} reloadKey={0} showContact />
           </div>
         </>
       )}

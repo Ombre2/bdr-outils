@@ -33,6 +33,16 @@ service cloud.firestore {
       return data.ownerId == request.auth.uid;
     }
 
+    // Admin : lecture seule sur les données de toute l'équipe (rôle défini dans la console, jamais côté client)
+    function isAdmin() {
+      return isAuthorized()
+        && get(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email.lower())).data.get('role', '') == 'admin';
+    }
+
+    function canRead(data) {
+      return isAuthorized() && (isOwner(data) || isAdmin());
+    }
+
     function isString(v, min, max) {
       return v is string && v.size() >= min && v.size() <= max;
     }
@@ -86,7 +96,7 @@ service cloud.firestore {
 
     // ---------- Comptes ----------
     match /accounts/{accountId} {
-      allow read: if isAuthorized() && isOwner(resource.data);
+      allow read: if canRead(resource.data);
 
       allow create: if isAuthorized()
         && isOwner(request.resource.data)
@@ -127,7 +137,7 @@ service cloud.firestore {
 
     // ---------- Contacts ----------
     match /contacts/{contactId} {
-      allow read: if isAuthorized() && isOwner(resource.data);
+      allow read: if canRead(resource.data);
 
       allow create: if isAuthorized()
         && isOwner(request.resource.data)
@@ -197,7 +207,7 @@ service cloud.firestore {
           return get(/databases/$(database)/documents/contacts/$(contactId)).data.ownerId == request.auth.uid;
         }
 
-        allow read: if isAuthorized() && isOwner(resource.data);
+        allow read: if canRead(resource.data);
 
         allow create: if isAuthorized()
           && isOwner(request.resource.data)
@@ -223,7 +233,7 @@ service cloud.firestore {
           return get(/databases/$(database)/documents/contacts/$(contactId)).data.ownerId == request.auth.uid;
         }
 
-        allow read: if isAuthorized() && isOwner(resource.data);
+        allow read: if canRead(resource.data);
 
         allow create: if isAuthorized()
           && isOwner(request.resource.data)
@@ -259,7 +269,7 @@ service cloud.firestore {
           return get(/databases/$(database)/documents/contacts/$(contactId)).data.ownerId == request.auth.uid;
         }
 
-        allow read: if isAuthorized() && isOwner(resource.data);
+        allow read: if canRead(resource.data);
 
         allow create: if isAuthorized()
           && isOwner(request.resource.data)
@@ -279,17 +289,17 @@ service cloud.firestore {
 
     // Requêtes collectionGroup sur les numéros (Omnisearch, Ma Journée)
     match /{path=**}/phones/{phoneId} {
-      allow read: if isAuthorized() && isOwner(resource.data);
+      allow read: if canRead(resource.data);
     }
 
     // Requêtes collectionGroup sur les emails (Omnisearch, import, export)
     match /{path=**}/emails/{emailId} {
-      allow read: if isAuthorized() && isOwner(resource.data);
+      allow read: if canRead(resource.data);
     }
 
     // ---------- Appels (journal, non modifiable) ----------
     match /calls/{callId} {
-      allow read: if isAuthorized() && isOwner(resource.data);
+      allow read: if canRead(resource.data);
 
       allow create: if isAuthorized()
         && isOwner(request.resource.data)
@@ -327,7 +337,7 @@ service cloud.firestore {
     // ---------- Autres actions (email, LinkedIn, autre) sur un contact ----------
     // Création et suppression seulement : pas de modification.
     match /activities/{activityId} {
-      allow read: if isAuthorized() && isOwner(resource.data);
+      allow read: if canRead(resource.data);
 
       allow create: if isAuthorized()
         && isOwner(request.resource.data)
@@ -346,7 +356,7 @@ service cloud.firestore {
 
     // ---------- Cadences (suites d'étapes réutilisables) ----------
     match /cadences/{cadenceId} {
-      allow read: if isAuthorized() && isOwner(resource.data);
+      allow read: if canRead(resource.data);
 
       allow create: if isAuthorized()
         && isOwner(request.resource.data)
@@ -369,6 +379,20 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
 
       allow delete: if isAuthorized() && isOwner(resource.data);
+    }
+
+    // ---------- Annuaire des utilisateurs (sert à afficher le propriétaire d'une donnée) ----------
+    // Chacun écrit uniquement sa propre entrée, avec son email Google. L'admin peut tout lire.
+    match /users/{uid} {
+      allow read: if isAuthorized() && (request.auth.uid == uid || isAdmin());
+
+      allow create, update: if isAuthorized()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'updatedAt'])
+        && request.resource.data.email == request.auth.token.email.lower()
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
     }
 
     // ---------- Tout le reste est refusé ----------

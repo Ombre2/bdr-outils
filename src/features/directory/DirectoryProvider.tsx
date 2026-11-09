@@ -1,4 +1,4 @@
-import { collection, collectionGroup, getDocs, query, where } from 'firebase/firestore'
+import { collection, collectionGroup, getDocs, query, where, type Query } from 'firebase/firestore'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -12,6 +12,12 @@ interface DirectoryValue {
   emails: ContactEmail[]
   cadences: Cadence[]
   loading: boolean
+  /** Vrai pour un admin : les données affichées sont celles de toute l'équipe (lecture seule). */
+  teamView: boolean
+  /** Email du BDR propriétaire d'une donnée (vue admin). Null si inconnu. */
+  ownerEmail: (ownerId: string | null | undefined) => string | null
+  /** Vue admin : tous les BDR connus (annuaire ou données), triés par email. */
+  owners: { id: string; label: string }[]
   refresh: () => Promise<void>
   phonesOf: (contactId: string) => Phone[]
   emailsOf: (contactId: string) => ContactEmail[]
@@ -26,27 +32,31 @@ const DirectoryContext = createContext<DirectoryValue | null>(null)
  * Tri et filtrage côté client : pas d'index composite supplémentaire, recherche instantanée.
  */
 export function DirectoryProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const uid = user?.uid
   const [accounts, setAccounts] = useState<Account[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [phones, setPhones] = useState<Phone[]>([])
   const [emails, setEmails] = useState<ContactEmail[]>([])
   const [cadences, setCadences] = useState<Cadence[]>([])
+  const [ownerEmails, setOwnerEmails] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
     if (!uid) return
     setLoading(true)
+    // Un BDR ne lit que ses données ; l'admin lit tout (règles Firestore : rôle admin, lecture seule)
+    const scoped = (base: Query): Query => (isAdmin ? base : query(base, where('ownerId', '==', uid)))
     // Chaque lecture est indépendante : une seule en échec n'empêche pas les autres de s'afficher
-    const reads = {
-      accounts: getDocs(query(collection(db, 'accounts'), where('ownerId', '==', uid))),
-      contacts: getDocs(query(collection(db, 'contacts'), where('ownerId', '==', uid))),
-      phones: getDocs(query(collectionGroup(db, 'phones'), where('ownerId', '==', uid))),
-      emails: getDocs(query(collectionGroup(db, 'emails'), where('ownerId', '==', uid))),
-      cadences: getDocs(query(collection(db, 'cadences'), where('ownerId', '==', uid))),
+    const reads: Record<string, Promise<unknown>> = {
+      accounts: getDocs(scoped(collection(db, 'accounts'))),
+      contacts: getDocs(scoped(collection(db, 'contacts'))),
+      phones: getDocs(scoped(collectionGroup(db, 'phones'))),
+      emails: getDocs(scoped(collectionGroup(db, 'emails'))),
+      cadences: getDocs(scoped(collection(db, 'cadences'))),
+      ...(isAdmin ? { users: getDocs(collection(db, 'users')) } : {}),
     }
-    const entries = Object.entries(reads) as [keyof typeof reads, Promise<unknown>][]
+    const entries = Object.entries(reads)
     const results = await Promise.allSettled(entries.map(([, p]) => p))
 
     const failed: string[] = []
@@ -106,11 +116,22 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
       )
     }
 
+    if (data.users) {
+      setOwnerEmails(
+        new Map(
+          docsOf<[string, string]>('users', (d) => [
+            d.id,
+            String((d.data() as { email?: unknown }).email ?? ''),
+          ]),
+        ),
+      )
+    }
+
     if (failed.length > 0) {
       toast.error(`Chargement incomplet (${failed.join(', ')}). Ouvrez la console (F12) pour le détail.`)
     }
     setLoading(false)
-  }, [uid])
+  }, [uid, isAdmin])
 
   useEffect(() => {
     void refresh()
@@ -139,13 +160,18 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
       cadences,
       cadenceById: (id) => (id ? cadenceIndex.get(id) : undefined),
       loading,
+      teamView: isAdmin,
+      ownerEmail: (ownerId) => (ownerId ? ownerEmails.get(ownerId) || null : null),
+      owners: [...new Set([...ownerEmails.keys(), ...contacts.map((c) => c.ownerId)])]
+        .map((id) => ({ id, label: ownerEmails.get(id) || 'Inconnu' }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'fr')),
       refresh,
       phonesOf: (contactId) =>
         (phonesByContact.get(contactId) ?? []).sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)),
       emailsOf: (contactId) => emailsByContact.get(contactId) ?? [],
       accountById: (id) => (id ? accountIndex.get(id) : undefined),
     }
-  }, [accounts, contacts, phones, emails, cadences, loading, refresh])
+  }, [accounts, contacts, phones, emails, cadences, ownerEmails, loading, refresh, isAdmin])
 
   return <DirectoryContext.Provider value={value}>{children}</DirectoryContext.Provider>
 }

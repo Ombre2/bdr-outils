@@ -37,7 +37,7 @@ interface ContactDetailViewProps {
 export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDetailViewProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { contacts, accountById, phonesOf, emailsOf, refresh, loading, cadences, cadenceById } = useDirectory()
+  const { contacts, accountById, phonesOf, emailsOf, refresh, loading, cadences, cadenceById, teamView, ownerEmail } = useDirectory()
   const [editing, setEditing] = useState(false)
   const [logging, setLogging] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
@@ -246,6 +246,7 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
               {contact.status}
             </Badge>
           </div>
+          {teamView && <p className="text-sm text-muted-foreground">Propriétaire : {ownerEmail(contact.ownerId) ?? '—'}</p>}
         </div>
 
         <div className="flex items-center gap-2">
@@ -258,16 +259,21 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
             onValueChange={(v) => changeStatus(v as ContactStatus)}
             options={CONTACT_STATUSES.map((s) => ({ value: s, label: s }))}
             ariaLabel="Statut du contact"
+            disabled={teamView}
           />
-          <Button size="sm" onClick={() => setLogging(true)}>
-            <PhoneCall className="size-4" aria-hidden /> Logger un appel
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-            <Pencil className="size-4" aria-hidden /> Modifier
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => void handleDelete()} aria-label="Supprimer le contact">
-            <Trash2 className="size-4" aria-hidden />
-          </Button>
+          {!teamView && (
+            <>
+              <Button size="sm" onClick={() => setLogging(true)}>
+                <PhoneCall className="size-4" aria-hidden /> Logger un appel
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                <Pencil className="size-4" aria-hidden /> Modifier
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void handleDelete()} aria-label="Supprimer le contact">
+                <Trash2 className="size-4" aria-hidden />
+              </Button>
+            </>
+          )}
         </div>
       </header>
 
@@ -335,7 +341,7 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
                       variant="outline"
                       size="sm"
                       className="shrink-0 cursor-pointer"
-                      disabled={updatingPhone !== null}
+                      disabled={updatingPhone !== null || teamView}
                       onClick={() => void choosePhone(p.id)}
                     >
                       {updatingPhone === p.id ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
@@ -431,11 +437,11 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
               )}
               <div className="flex flex-wrap gap-2">
                 {nextStep && (
-                  <Button size="sm" onClick={() => void doneStep()} disabled={cadenceBusy}>
+                  <Button size="sm" onClick={() => void doneStep()} disabled={cadenceBusy || teamView}>
                     Étape faite
                   </Button>
                 )}
-                <Button size="sm" variant="outline" onClick={() => void stopCadence()} disabled={cadenceBusy}>
+                <Button size="sm" variant="outline" onClick={() => void stopCadence()} disabled={cadenceBusy || teamView}>
                   Arrêter la cadence
                 </Button>
               </div>
@@ -453,8 +459,9 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
                 options={cadences.map((c) => ({ value: c.id, label: c.name }))}
                 emptyLabel="Choisir une cadence"
                 ariaLabel="Cadence à démarrer"
+                disabled={teamView}
               />
-              <Button size="sm" onClick={() => void startCadence()} disabled={!cadenceChoice || cadenceBusy}>
+              <Button size="sm" onClick={() => void startCadence()} disabled={!cadenceChoice || cadenceBusy || teamView}>
                 Démarrer
               </Button>
               {cadences.length === 0 && (
@@ -467,9 +474,11 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
         <div className="space-y-3 rounded-md border border-border p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium">Autres actions</h2>
-            <Button size="sm" variant="outline" onClick={() => setActivityOpen(true)}>
-              <Plus className="size-4" aria-hidden /> Journaliser
-            </Button>
+            {!teamView && (
+              <Button size="sm" variant="outline" onClick={() => setActivityOpen(true)}>
+                <Plus className="size-4" aria-hidden /> Journaliser
+              </Button>
+            )}
           </div>
           {activities.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucune action (email, LinkedIn…) enregistrée.</p>
@@ -484,9 +493,11 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
                     </p>
                     {a.notes && <p className="whitespace-pre-line text-muted-foreground">{a.notes}</p>}
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => void removeActivity(a.id)} aria-label="Supprimer cette action">
-                    <Trash2 className="size-4" aria-hidden />
-                  </Button>
+                  {!teamView && (
+                    <Button variant="ghost" size="icon" onClick={() => void removeActivity(a.id)} aria-label="Supprimer cette action">
+                      <Trash2 className="size-4" aria-hidden />
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -526,7 +537,7 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
 
       <div className="space-y-3">
         <h2 className="text-sm font-medium">Historique des appels</h2>
-        <CallTimeline ownerId={user?.uid ?? ''} contactId={contact.id} reloadKey={reloadKey} />
+        <CallTimeline ownerId={contact.ownerId} contactId={contact.id} reloadKey={reloadKey} />
       </div>
 
       <StatusReasonDialog

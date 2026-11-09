@@ -24,7 +24,7 @@ const OUTCOME_VARIANT: Partial<Record<CallOutcome, 'default' | 'secondary' | 'ou
 
 /** Historique des appels, style timeline, du plus récent au plus ancien. */
 export function CallTimeline({ ownerId, contactId, accountId, reloadKey, showContact }: Props) {
-  const { contacts, phonesOf } = useDirectory()
+  const { contacts, phonesOf, teamView } = useDirectory()
   const [calls, setCalls] = useState<Call[] | null>(null)
   const [error, setError] = useState(false)
   const [editing, setEditing] = useState<Call | null>(null)
@@ -70,9 +70,11 @@ export function CallTimeline({ ownerId, contactId, accountId, reloadKey, showCon
                   · {contact.firstName} {contact.lastName}
                 </span>
               )}
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setEditing(call)}>
-                <Pencil className="size-3" aria-hidden /> Corriger
-              </Button>
+              {!teamView && (
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setEditing(call)}>
+                  <Pencil className="size-3" aria-hidden /> Corriger
+                </Button>
+              )}
               {call.editedAt && <span className="text-xs text-muted-foreground">(corrigé)</span>}
             </div>
             {call.notes && <p className="mt-1 whitespace-pre-line">{call.notes}</p>}

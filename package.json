@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test:rules": "firebase --config firebase/firebase.json emulators:exec --only firestore --project bdr-outils-test \"vitest run firebase/tests\"",
+    "test:rules": "firebase emulators:exec --only firestore --project bdr-outils-test \"vitest run firebase/tests\"",
     "typecheck": "tsc -b",
     "test": "vitest run src"
   },

@@ -19,7 +19,7 @@ import { CONTACT_STATUSES } from '@/types/models'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function ContactsPage() {
-  const { contacts, accountById, phones, phonesOf, loading } = useDirectory()
+  const { contacts, accountById, phones, phonesOf, loading, teamView, ownerEmail, owners: teamOwners } = useDirectory()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [filter, setFilter] = useState('')
@@ -28,6 +28,8 @@ export function ContactsPage() {
   const [countries, setCountries] = useState<string[]>([])
   const [sources, setSources] = useState<string[]>([])
   const [industries, setIndustries] = useState<string[]>([])
+  // Vue admin uniquement : filtre par BDR propriétaire
+  const [owners, setOwners] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(50)
@@ -52,6 +54,7 @@ export function ContactsPage() {
       if (statuses.length > 0 && !statuses.includes(c.status)) return false
       if (countries.length > 0 && !(c.country && countries.includes(c.country))) return false
       if (sources.length > 0 && !(c.source && sources.includes(c.source))) return false
+      if (owners.length > 0 && !owners.includes(c.ownerId)) return false
       // L'industrie vient du compte rattaché au contact
       if (industries.length > 0) {
         const industry = accountById(c.accountId)?.industry
@@ -63,7 +66,9 @@ export function ContactsPage() {
       )
       return (q !== '' && haystack.includes(q)) || (phoneMatchIds?.has(c.id) ?? false)
     })
-  }, [contacts, filter, statuses, countries, sources, industries, phoneMatchIds, accountById])
+  }, [contacts, filter, statuses, countries, sources, industries, owners, phoneMatchIds, accountById])
+
+  const ownerOptions = useMemo(() => teamOwners.map((o) => ({ value: o.id, label: o.label })), [teamOwners])
 
   // Options proposées : uniquement les valeurs présentes dans les contacts
   const countryOptions = useMemo(
@@ -84,7 +89,7 @@ export function ContactsPage() {
       ),
     [contacts, accountById],
   )
-  const filtersActive = Boolean(filter || statuses.length || countries.length || sources.length || industries.length)
+  const filtersActive = Boolean(filter || statuses.length || countries.length || sources.length || industries.length || owners.length)
 
   function resetFilters() {
     setFilter('')
@@ -92,6 +97,7 @@ export function ContactsPage() {
     setCountries([])
     setSources([])
     setIndustries([])
+    setOwners([])
     setPage(1)
   }
 
@@ -111,10 +117,12 @@ export function ContactsPage() {
             {rows.length} sur {contacts.length} contact(s)
           </p>
         </div>
-        <Button onClick={() => setCreating(true)}>
-          <Plus className="size-4" aria-hidden />
-          Nouveau contact
-        </Button>
+        {!teamView && (
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="size-4" aria-hidden />
+            Nouveau contact
+          </Button>
+        )}
       </header>
 
       <div className="flex flex-wrap gap-2">
@@ -158,6 +166,18 @@ export function ContactsPage() {
             setPage(1)
           }}
         />
+        {teamView && (
+          <MultiSelectFilter
+            label="Propriétaire"
+            className="w-56"
+            options={ownerOptions}
+            selected={owners}
+            onChange={(v) => {
+              setOwners(v)
+              setPage(1)
+            }}
+          />
+        )}
         <MultiSelectFilter
           label="Industrie"
           className="w-56"
@@ -186,6 +206,7 @@ export function ContactsPage() {
               <TableHead>Téléphone</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Heure locale</TableHead>
+              {teamView && <TableHead>Propriétaire</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -226,12 +247,13 @@ export function ContactsPage() {
                   <TableCell className="tabular-nums text-muted-foreground">
                     {localTimeLabel(c.timezone, now) ?? '—'}
                   </TableCell>
+                  {teamView && <TableCell className="text-muted-foreground">{ownerEmail(c.ownerId) ?? '—'}</TableCell>}
                 </TableRow>
               )
             })}
             {!loading && rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={teamView ? 8 : 7} className="py-8 text-center text-muted-foreground">
                   Aucun contact. Créez-en un ou importez vos fichiers (étape F).
                 </TableCell>
               </TableRow>

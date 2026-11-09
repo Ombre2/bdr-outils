@@ -45,7 +45,7 @@ Avant de dire qu'une modification est terminée : `typecheck`, `test` et `build`
 - Les téléphones, emails et l'historique de statut sont des **sous-collections** : `contacts/{id}/phones`, `contacts/{id}/emails`, `contacts/{id}/statusHistory`. Ne pas les remettre dans le document contact.
 - Le document `contacts` garde des champs simples (`status`, `cadenceId`, `cadenceStep`…).
 - Les `activities`, `cadences` et `calls` sont des collections de premier niveau avec `ownerId`.
-- Toute requête multi-documents filtre sur `ownerId == user.uid`.
+- Toute requête multi-documents filtre sur `ownerId == user.uid`, sauf pour l'admin (voir section 6).
 - Les dates sont stockées avec `serverTimestamp()` pour `createdAt` / `updatedAt`. Les dates saisies par l'utilisateur (date d'appel, date d'activité) sont refusées si elles sont dans le futur.
 - **Pas de batch sur les sous-collections** pour la modification de téléphones : les règles actuelles refusent ce cas en production. Écrire document par document (`updateDoc`).
 
@@ -53,7 +53,9 @@ Avant de dire qu'une modification est terminée : `typecheck`, `test` et `build`
 
 - **Firestore est la seule source de vérité.** Pas de cache local persistant ni de stockage navigateur pour des données métier (`memoryLocalCache` uniquement).
 - Toute nouvelle collection ou nouveau champ doit avoir une règle dans `firebase/firestore.rules`, avec un test dans `firebase/tests/rules.test.ts`.
-- Règles : tout est refusé par défaut. Accès réservé aux utilisateurs connectés, Google vérifié et présents dans la liste autorisée. Les données sont accessibles seulement à leur propriétaire.
+- Règles : tout est refusé par défaut. Accès réservé aux utilisateurs connectés, Google vérifié et présents dans la liste autorisée. Les données sont accessibles à leur propriétaire.
+- Rôle admin (`allowedUsers/{email}.role == 'admin'`, défini dans la console seulement) : **lecture seule** sur les données de toute l'équipe, pour consultation et tableau de bord. Aucune écriture ni suppression pour l'admin : les règles le refusent et l'interface masque les boutons d'écriture (`teamView` dans `DirectoryProvider`).
+- Annuaire `users/{uid}` : chaque BDR écrit uniquement sa propre entrée (email), l'admin la lit pour afficher le propriétaire. Un BDR ne lit que la sienne.
 - L'historique (`statusHistory`) n'est pas modifiable : création et suppression seulement.
 - Ne jamais écrire de secret, de token ou de clé d'API dans le code ou dans ce fichier. Ne jamais utiliser `firebase login:ci`.
 
@@ -66,10 +68,10 @@ Claude Code et les développeurs doivent **demander avant** :
 - **Écraser** des données importées ou modifier en masse.
 - **Committer ou pousser** : seulement si demandé.
 
-Pour le déploiement des règles, depuis le dossier `firebase` (pas la racine) :
+Pour le déploiement des règles, depuis la racine du projet (là où se trouve `firebase.json`) :
 
 ```
-cd firebase && node ../node_modules/firebase-tools/lib/bin/firebase.js deploy --only firestore:rules --project bdr-outils < /dev/null
+node node_modules/firebase-tools/lib/bin/firebase.js deploy --only firestore:rules --project bdr-outils < /dev/null
 ```
 
 ## 8. Règles de code

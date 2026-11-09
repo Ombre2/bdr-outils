@@ -7,7 +7,19 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
-import { Timestamp, collection, deleteDoc, doc, getDoc, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore'
+import {
+  Timestamp,
+  collection,
+  collectionGroup,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  writeBatch,
+} from 'firebase/firestore'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -526,5 +538,88 @@ describe('Import en lots : contact puis numéros dans un second lot', () => {
       updatedAt: serverTimestamp(),
     })
     await assertSucceeds(phoneBatch.commit())
+  })
+})
+
+describe('Admin : lecture seule sur l’équipe', () => {
+  it("l'admin lit le contact d'un BDR", async () => {
+    await assertSucceeds(getDoc(doc(ctxFor(ADMIN), 'contacts', 'c1')))
+  })
+
+  it("l'admin liste les contacts de toute l'équipe (sans filtre ownerId)", async () => {
+    await assertSucceeds(getDocs(collection(ctxFor(ADMIN), 'contacts')))
+  })
+
+  it("un BDR ne peut pas lister les contacts sans filtrer sur lui-même", async () => {
+    await assertFails(getDocs(collection(ctxFor(BDR_B), 'contacts')))
+  })
+
+  it("l'admin ne peut pas modifier le contact d'un BDR", async () => {
+    await assertFails(updateDoc(doc(ctxFor(ADMIN), 'contacts', 'c1'), { status: 'En cours', statusChangedAt: serverTimestamp(), updatedAt: serverTimestamp() }))
+  })
+
+  it("l'admin ne peut pas supprimer le contact d'un BDR", async () => {
+    await assertFails(deleteDoc(doc(ctxFor(ADMIN), 'contacts', 'c1')))
+  })
+
+  it("l'admin ne peut pas créer de contact", async () => {
+    await assertFails(setDoc(doc(ctxFor(ADMIN), 'contacts', 'c9'), { ownerId: ADMIN.uid }))
+  })
+
+  it("un BDR ne devient pas admin : il ne lit pas le contact d'un collègue", async () => {
+    await assertFails(getDoc(doc(ctxFor(BDR_B), 'contacts', 'c1')))
+  })
+
+  it("l'admin lit les numéros d'un contact d'un BDR (collectionGroup compris)", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'contacts', 'c1', 'phones', 'p1'), {
+        ownerId: BDR_A.uid, number: '+33612345678', label: 'Mobile', isPrimary: true,
+        createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
+      })
+    })
+    await assertSucceeds(getDoc(doc(ctxFor(ADMIN), 'contacts', 'c1', 'phones', 'p1')))
+    await assertSucceeds(getDocs(collectionGroup(ctxFor(ADMIN), 'phones')))
+    await assertFails(getDocs(collectionGroup(ctxFor(BDR_B), 'phones')))
+  })
+
+  it("l'admin lit les appels et les comptes de l'équipe, sans rien modifier", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'calls', 'k1'), { ownerId: BDR_A.uid, contactId: 'c1', accountId: 'a1', outcome: 'NPR', calledAt: Timestamp.now(), createdAt: Timestamp.now() })
+      await setDoc(doc(ctx.firestore(), 'accounts', 'a1'), validAccount(BDR_A.uid))
+    })
+    await assertSucceeds(getDoc(doc(ctxFor(ADMIN), 'calls', 'k1')))
+    await assertSucceeds(getDoc(doc(ctxFor(ADMIN), 'accounts', 'a1')))
+    await assertFails(deleteDoc(doc(ctxFor(ADMIN), 'calls', 'k1')))
+    await assertFails(deleteDoc(doc(ctxFor(ADMIN), 'accounts', 'a1')))
+  })
+})
+
+describe('Annuaire users (propriétaire affiché à l’admin)', () => {
+  it('un BDR écrit sa propre entrée avec son email', async () => {
+    await assertSucceeds(setDoc(doc(ctxFor(BDR_A), 'users', BDR_A.uid), { email: BDR_A.email, updatedAt: serverTimestamp() }))
+  })
+
+  it("un BDR ne peut pas écrire l'entrée d'un autre", async () => {
+    await assertFails(setDoc(doc(ctxFor(BDR_A), 'users', BDR_B.uid), { email: BDR_A.email, updatedAt: serverTimestamp() }))
+  })
+
+  it('refuse un email différent de celui du compte connecté', async () => {
+    await assertFails(setDoc(doc(ctxFor(BDR_A), 'users', BDR_A.uid), { email: BDR_B.email, updatedAt: serverTimestamp() }))
+  })
+
+  it("l'admin lit tous les annuaires, un BDR seulement le sien", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', BDR_A.uid), { email: BDR_A.email, updatedAt: Timestamp.now() })
+    })
+    await assertSucceeds(getDoc(doc(ctxFor(ADMIN), 'users', BDR_A.uid)))
+    await assertSucceeds(getDoc(doc(ctxFor(BDR_A), 'users', BDR_A.uid)))
+    await assertFails(getDoc(doc(ctxFor(BDR_B), 'users', BDR_A.uid)))
+  })
+
+  it("un BDR ne peut pas supprimer son entrée", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', BDR_A.uid), { email: BDR_A.email, updatedAt: Timestamp.now() })
+    })
+    await assertFails(deleteDoc(doc(ctxFor(BDR_A), 'users', BDR_A.uid)))
   })
 })

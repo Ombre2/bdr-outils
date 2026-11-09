@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Cache du CLI Firebase (généré au déploiement)
+.firebase/

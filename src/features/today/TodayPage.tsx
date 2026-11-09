@@ -18,7 +18,7 @@ import type { Contact } from '@/types/models'
 
 export function TodayPage() {
   const { user } = useAuth()
-  const { contacts, phonesOf, accountById, cadenceById, refresh, loading } = useDirectory()
+  const { contacts, phonesOf, accountById, cadenceById, refresh, loading, teamView } = useDirectory()
   const [logFor, setLogFor] = useState<Contact | null>(null)
   const [callsToday, setCallsToday] = useState<number | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -149,7 +149,7 @@ export function TodayPage() {
                         <Button
                           size="sm"
                           onClick={() => void doneCadenceStep(contact, cadence.steps.length)}
-                          disabled={stepBusy === contact.id}
+                          disabled={stepBusy === contact.id || teamView}
                         >
                           Étape faite
                         </Button>
@@ -232,7 +232,7 @@ export function TodayPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" onClick={() => setLogFor(c)}>
+                    <Button size="sm" onClick={() => setLogFor(c)} disabled={teamView}>
                       Logger
                     </Button>
                   </TableCell>

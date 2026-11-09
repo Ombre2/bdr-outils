@@ -26,8 +26,8 @@ npm run dev
 Les fichiers sont dans `firebase/`. Le déploiement se fait depuis la racine :
 
 ```bash
-npx firebase --config firebase/firebase.json deploy --only firestore:rules,firestore:indexes
-npx firebase --config firebase/firebase.json deploy --only hosting
+npx firebase deploy --only firestore:rules,firestore:indexes
+npx firebase deploy --only hosting
 ```
 
 ## Checklist de sécurité avant mise en production
@@ -39,7 +39,7 @@ Plan Spark : connexion Google uniquement. Le TOTP de Firebase (Identity Platform
 - [ ] 2FA imposée sur les comptes Google des BDR (Google Workspace : admin.google.com > Sécurité > Authentification en deux étapes). Non vérifiable par les règles.
 - [ ] App Check activé avec la clé `VITE_APPCHECK_SITE_KEY` (optionnel au début, obligatoire avant production)
 - [ ] `npm run test:rules` vert
-- [ ] Domaine Firebase Hosting en HTTPS uniquement, en-têtes vérifiés (`firebase/firebase.json`)
+- [ ] Domaine Firebase Hosting en HTTPS uniquement, en-têtes vérifiés (`firebase.json` à la racine)
 
 ## Structure
 

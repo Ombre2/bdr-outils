@@ -34,7 +34,20 @@ import { cn } from '@/lib/utils'
 type Tab = 'import' | 'export'
 
 export function ImportExportPage() {
+  const { teamView } = useDirectory()
   const [tab, setTab] = useState<Tab>('import')
+  if (teamView) {
+    return (
+      <section className="space-y-5">
+        <header>
+          <h1 className="text-lg font-semibold tracking-tight">Import / Export</h1>
+          <p className="text-sm text-muted-foreground">
+            Réservé aux BDR. Le compte administrateur consulte les données de l’équipe dans les autres écrans.
+          </p>
+        </header>
+      </section>
+    )
+  }
   return (
     <section className="space-y-5">
       <header>

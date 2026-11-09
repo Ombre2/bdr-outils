@@ -13,7 +13,7 @@ import { countryLabel } from '@/lib/geo'
 import { normalizeText } from '@/lib/text'
 
 export function AccountsPage() {
-  const { accounts, contacts, loading, refresh } = useDirectory()
+  const { accounts, contacts, loading, refresh, teamView, ownerEmail } = useDirectory()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [filter, setFilter] = useState('')
@@ -60,10 +60,12 @@ export function AccountsPage() {
           <h1 className="text-lg font-semibold tracking-tight">Comptes</h1>
           <p className="text-sm text-muted-foreground">{accounts.length} compte(s)</p>
         </div>
-        <Button onClick={() => setCreating(true)}>
-          <Plus className="size-4" aria-hidden />
-          Nouveau compte
-        </Button>
+        {!teamView && (
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="size-4" aria-hidden />
+            Nouveau compte
+          </Button>
+        )}
       </header>
 
       <div className="flex flex-wrap gap-2">
@@ -112,6 +114,7 @@ export function AccountsPage() {
               <TableHead>Ville</TableHead>
               <TableHead className="text-right">Headcount</TableHead>
               <TableHead className="text-right">Contacts</TableHead>
+              {teamView && <TableHead>Propriétaire</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -127,11 +130,12 @@ export function AccountsPage() {
                 <TableCell>{a.city ?? '—'}</TableCell>
                 <TableCell className="text-right tabular-nums">{a.headcount ?? '—'}</TableCell>
                 <TableCell className="text-right tabular-nums">{contactCount.get(a.id) ?? 0}</TableCell>
+                {teamView && <TableCell className="text-muted-foreground">{ownerEmail(a.ownerId) ?? '—'}</TableCell>}
               </TableRow>
             ))}
             {!loading && rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={teamView ? 7 : 6} className="py-8 text-center text-muted-foreground">
                   Aucun compte. Créez-en un pour commencer.
                 </TableCell>
               </TableRow>

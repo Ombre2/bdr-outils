@@ -1,5 +1,5 @@
 import { GoogleAuthProvider, signInWithPopup, signOut, type User } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { auth, db } from '@/services/firebase'
 
 const provider = new GoogleAuthProvider()
@@ -18,15 +18,25 @@ export async function hasVerifiedGoogleSession(user: User): Promise<boolean> {
   return firebaseClaims?.sign_in_provider === 'google.com' && result.claims.email_verified === true
 }
 
-/** Vrai si l'email figure dans la liste blanche (ID du document = email en minuscules). */
-export async function isAllowlisted(email: string): Promise<boolean> {
+/**
+ * Rôle d'un email dans la liste blanche (ID du document = email en minuscules).
+ * Renvoie null si l'email n'est pas autorisé ; '' si le rôle n'est pas renseigné.
+ */
+export async function getAllowlistRole(email: string): Promise<string | null> {
   try {
     const snap = await getDoc(doc(db, 'allowedUsers', email.trim().toLowerCase()))
-    return snap.exists()
+    if (!snap.exists()) return null
+    const role: unknown = snap.data().role
+    return typeof role === 'string' ? role : ''
   } catch {
     // Les règles refusent la lecture hors liste blanche : on traite comme non autorisé
-    return false
+    return null
   }
+}
+
+/** Annuaire : associe l'identifiant du compte à son email, pour afficher le propriétaire aux admins. */
+export async function saveUserDirectoryEntry(uid: string, email: string): Promise<void> {
+  await setDoc(doc(db, 'users', uid), { email: email.trim().toLowerCase(), updatedAt: serverTimestamp() })
 }
 
 export async function logout(): Promise<void> {

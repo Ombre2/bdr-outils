@@ -131,6 +131,19 @@ export async function listCallsBetween(ownerId: string, start: Date, end: Date):
   return snap.docs.map(fromSnapshot)
 }
 
+/** Appels de toute l'équipe sur une période. Réservé à l'admin (lecture seule, règles : rôle admin). */
+export async function listTeamCallsBetween(start: Date, end: Date): Promise<Call[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'calls'),
+      where('calledAt', '>=', Timestamp.fromDate(start)),
+      where('calledAt', '<=', Timestamp.fromDate(end)),
+      orderBy('calledAt', 'desc'),
+    ),
+  )
+  return snap.docs.map(fromSnapshot)
+}
+
 /** Appels depuis une date (ex. début de la journée), pour les compteurs de Ma Journée. */
 export async function listCallsSince(ownerId: string, since: Date): Promise<Call[]> {
   const snap = await getDocs(
