@@ -174,17 +174,20 @@ export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhon
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
-        <DialogHeader>
+      <DialogContent
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 sm:max-w-2xl"
+        onKeyDown={handleKeyDown}
+      >
+        <DialogHeader className="border-b px-6 py-4 pr-12">
           <DialogTitle>
             Appel · {contact.firstName} {contact.lastName}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Résultat</Label>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
               {CALL_OUTCOMES.map((o, i) => (
                 <Button
                   key={o}
@@ -201,6 +204,7 @@ export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhon
             </div>
           </div>
 
+          <div className="grid gap-5 sm:grid-cols-2 [&>*]:min-w-0">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground" htmlFor="called-at">Date et heure de l’appel</Label>
             <Input
@@ -227,6 +231,7 @@ export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhon
             ) : (
               <p className="text-sm text-muted-foreground">Aucun numéro enregistré pour ce contact.</p>
             )}
+          </div>
           </div>
 
           <div className="space-y-1.5">
@@ -281,7 +286,7 @@ export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhon
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t px-6 py-4">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
