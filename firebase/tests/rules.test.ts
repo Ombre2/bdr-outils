@@ -300,6 +300,17 @@ describe('Appels (journal)', () => {
     await assertFails(setDoc(doc(ctxFor(BDR_A), 'calls', 'call5'), { ...validCall(BDR_A.uid), notes: 'x'.repeat(5001) }))
   })
 
+  it('accepte une date de RDV (timestamp) à la création et à la correction', async () => {
+    const db = ctxFor(BDR_A)
+    const meetingAt = Timestamp.fromDate(new Date(Date.now() + 86400000))
+    await assertSucceeds(setDoc(doc(db, 'calls', 'call11'), { ...validCall(BDR_A.uid), outcome: 'RDV pris', meetingAt }))
+    await assertSucceeds(updateDoc(doc(db, 'calls', 'call11'), { meetingAt, editedAt: serverTimestamp() }))
+  })
+
+  it('refuse une date de RDV qui n\'est pas une date', async () => {
+    await assertFails(setDoc(doc(ctxFor(BDR_A), 'calls', 'call12'), { ...validCall(BDR_A.uid), outcome: 'RDV pris', meetingAt: '2026-11-12T14:30' }))
+  })
+
   it('corrige un appel (résultat, notes) avec la date de correction', async () => {
     const db = ctxFor(BDR_A)
     await assertSucceeds(setDoc(doc(db, 'calls', 'call6'), validCall(BDR_A.uid)))

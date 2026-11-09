@@ -29,6 +29,7 @@ export function EditCallDialog({ open, onOpenChange, call, phones, onSaved }: Pr
   const [outcome, setOutcome] = useState<CallOutcome>(call.outcome)
   const [calledPhone, setCalledPhone] = useState<string>(call.calledPhone ?? '')
   const [calledAtInput, setCalledAtInput] = useState('')
+  const [meetingInput, setMeetingInput] = useState('')
   const [notes, setNotes] = useState(call.notes ?? '')
   const [saving, setSaving] = useState(false)
 
@@ -38,6 +39,7 @@ export function EditCallDialog({ open, onOpenChange, call, phones, onSaved }: Pr
     setOutcome(call.outcome)
     setCalledPhone(call.calledPhone ?? '')
     setCalledAtInput(toLocalInput(call.calledAt.toDate()))
+    setMeetingInput(call.meetingAt ? toLocalInput(call.meetingAt.toDate()) : '')
     setNotes(call.notes ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, call.id])
@@ -49,6 +51,15 @@ export function EditCallDialog({ open, onOpenChange, call, phones, onSaved }: Pr
       toast.error('Date de l’appel invalide.')
       return
     }
+    if (outcome === 'RDV pris' && !meetingInput) {
+      toast.error('Indiquez la date et l’heure du RDV.')
+      return
+    }
+    const meetingAt = outcome === 'RDV pris' ? new Date(meetingInput) : null
+    if (meetingAt && Number.isNaN(meetingAt.getTime())) {
+      toast.error('Date du RDV invalide.')
+      return
+    }
     setSaving(true)
     try {
       await updateCall(call.id, {
@@ -56,6 +67,7 @@ export function EditCallDialog({ open, onOpenChange, call, phones, onSaved }: Pr
         calledPhone: calledPhone || null,
         notes,
         calledAt,
+        meetingAt,
       })
       toast.success('Appel corrigé.')
       onSaved()
@@ -84,6 +96,13 @@ export function EditCallDialog({ open, onOpenChange, call, phones, onSaved }: Pr
               ariaLabel="Résultat de l’appel"
             />
           </div>
+
+          {outcome === 'RDV pris' && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium" htmlFor="edit-meeting-at">Date et heure du RDV *</Label>
+              <Input id="edit-meeting-at" type="datetime-local" value={meetingInput} onChange={(e) => setMeetingInput(e.target.value)} />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground" htmlFor="edit-called-at">Date et heure de l’appel</Label>

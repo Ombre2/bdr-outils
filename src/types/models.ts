@@ -90,6 +90,7 @@ export interface Call {
   outcome: CallOutcome
   notes: string | null
   nextReminderAt: Timestamp | null
+  meetingAt?: Timestamp | null // date et heure du RDV, obligatoire si résultat « RDV pris »
   createdAt: Timestamp
   editedAt?: Timestamp | null // dernière correction
 }

@@ -78,6 +78,11 @@ export function CallTimeline({ ownerId, contactId, accountId, reloadKey, showCon
               {call.editedAt && <span className="text-xs text-muted-foreground">(corrigé)</span>}
             </div>
             {call.notes && <p className="mt-1 whitespace-pre-line">{call.notes}</p>}
+            {call.meetingAt && (
+              <p className="mt-1 text-xs font-medium">
+                RDV : {formatDateTime(call.meetingAt.toDate())}
+              </p>
+            )}
             {call.nextReminderAt && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Rappel prévu : {formatDateTime(call.nextReminderAt.toDate())}

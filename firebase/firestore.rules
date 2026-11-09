@@ -305,12 +305,13 @@ service cloud.firestore {
         && isOwner(request.resource.data)
         && request.resource.data.keys().hasOnly([
           'ownerId', 'contactId', 'accountId', 'calledAt', 'calledPhone',
-          'outcome', 'notes', 'nextReminderAt', 'createdAt'])
+          'outcome', 'notes', 'nextReminderAt', 'meetingAt', 'createdAt'])
         && request.resource.data.outcome in
              ['NPR', 'Messagerie', 'Mauvais numéro', 'Dead', 'Not good Contact', 'Nurturing', 'R1', 'No Show', 'Argumenté', 'Rappel demandé', 'RDV pris', 'Refus']
         && isOptionalE164(request.resource.data.calledPhone)
         && isOptionalString(request.resource.data.notes, 5000)
         && isOptionalTimestamp(request.resource.data.nextReminderAt)
+        && isOptionalTimestamp(request.resource.data.get('meetingAt', null))
         && request.resource.data.calledAt is timestamp
         && request.resource.data.createdAt == request.time;
 
@@ -323,12 +324,13 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.keys().hasOnly([
           'ownerId', 'contactId', 'accountId', 'calledAt', 'calledPhone',
-          'outcome', 'notes', 'nextReminderAt', 'createdAt', 'editedAt'])
+          'outcome', 'notes', 'nextReminderAt', 'meetingAt', 'createdAt', 'editedAt'])
         && request.resource.data.outcome in
              ['NPR', 'Messagerie', 'Mauvais numéro', 'Dead', 'Not good Contact', 'Nurturing', 'R1', 'No Show', 'Argumenté', 'Rappel demandé', 'RDV pris', 'Refus']
         && isOptionalE164(request.resource.data.calledPhone)
         && isOptionalString(request.resource.data.notes, 5000)
         && isOptionalTimestamp(request.resource.data.nextReminderAt)
+        && isOptionalTimestamp(request.resource.data.get('meetingAt', null))
         && request.resource.data.calledAt is timestamp
         && request.resource.data.editedAt == request.time;
       allow delete: if isAuthorized() && isOwner(resource.data);

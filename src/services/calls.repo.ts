@@ -20,12 +20,18 @@ export interface CallInput {
   calledPhone: string | null
   notes: string
   nextReminderAt: Date | null
+  meetingAt?: Date | null // date et heure du RDV, obligatoire si résultat « RDV pris »
   status: ContactStatus // statut du contact après l'appel (inchangé si identique)
   statusReason?: string | null // motif, demandé si le statut change vers Disqualifié / Ne plus contacter
   calledAt?: Date // date de l'appel choisie ; par défaut, maintenant
 }
 
 export class CallInputError extends Error {}
+
+/** Un RDV pris doit avoir sa date et son heure. */
+function checkMeetingAt(outcome: CallOutcome, meetingAt: Date | null | undefined): void {
+  if (outcome === 'RDV pris' && !meetingAt) throw new CallInputError('Indiquez la date et l’heure du RDV.')
+}
 
 /**
  * Enregistre un appel ET met à jour le contact (prochain rappel, dernier appel, statut)
@@ -34,6 +40,7 @@ export class CallInputError extends Error {}
 export async function logCall(ownerId: string, contact: Contact, input: CallInput): Promise<void> {
   if (!input.outcome) throw new CallInputError('Choisissez un résultat.')
   if (!CONTACT_STATUSES.includes(input.status)) throw new CallInputError('Statut invalide.')
+  checkMeetingAt(input.outcome, input.meetingAt)
 
   const calledAt = input.calledAt ?? new Date()
   if (calledAt.getTime() > Date.now() + 60_000) throw new CallInputError('La date de l’appel ne peut pas être dans le futur.')
@@ -50,6 +57,7 @@ export async function logCall(ownerId: string, contact: Contact, input: CallInpu
     outcome: input.outcome,
     notes,
     nextReminderAt: input.nextReminderAt ? Timestamp.fromDate(input.nextReminderAt) : null,
+    meetingAt: input.meetingAt ? Timestamp.fromDate(input.meetingAt) : null,
     createdAt: serverTimestamp(),
   })
 
@@ -72,17 +80,20 @@ export interface CallCorrection {
   calledPhone: string | null
   notes: string
   calledAt: Date
+  meetingAt: Date | null
 }
 
-/** Corrige un appel déjà enregistré (résultat, numéro, date, notes). Le rappel et le statut ne changent pas. */
+/** Corrige un appel déjà enregistré (résultat, numéro, date, RDV, notes). Le rappel et le statut ne changent pas. */
 export async function updateCall(callId: string, input: CallCorrection): Promise<void> {
   if (!CALL_OUTCOMES.includes(input.outcome)) throw new CallInputError('Choisissez un résultat.')
+  checkMeetingAt(input.outcome, input.meetingAt)
   if (input.calledAt.getTime() > Date.now() + 60_000) throw new CallInputError('La date de l’appel ne peut pas être dans le futur.')
   await updateDoc(doc(db, 'calls', callId), {
     outcome: input.outcome,
     calledPhone: input.calledPhone,
     notes: cleanText(input.notes, 5000),
     calledAt: Timestamp.fromDate(input.calledAt),
+    meetingAt: input.meetingAt ? Timestamp.fromDate(input.meetingAt) : null,
     editedAt: serverTimestamp(),
   })
 }
@@ -142,6 +153,19 @@ export async function listTeamCallsBetween(start: Date, end: Date): Promise<Call
     ),
   )
   return snap.docs.map(fromSnapshot)
+}
+
+/** Tous les appels « RDV pris » du BDR, avec ou sans date de RDV. Filtre fait dans l'appli, donc pas d'index composite. */
+export async function listRdvCallsForOwner(ownerId: string): Promise<Call[]> {
+  const snap = await getDocs(
+    query(collection(db, 'calls'), where('ownerId', '==', ownerId), where('outcome', '==', 'RDV pris')),
+  )
+  return snap.docs.map(fromSnapshot)
+}
+
+/** Rendez-vous à date connue (résultat « RDV pris » avec date et heure du RDV). */
+export async function listMeetingsForOwner(ownerId: string): Promise<Call[]> {
+  return (await listRdvCallsForOwner(ownerId)).filter((c) => !!c.meetingAt)
 }
 
 /** Appels depuis une date (ex. début de la journée), pour les compteurs de Ma Journée. */

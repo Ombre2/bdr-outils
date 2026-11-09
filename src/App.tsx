@@ -13,6 +13,7 @@ import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { ImportExportPage } from '@/features/import-export/ImportExportPage'
 import { DirectoryProvider } from '@/features/directory/DirectoryProvider'
 import { TodayPage } from '@/features/today/TodayPage'
+import { MeetingsPage } from '@/features/meetings/MeetingsPage'
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
           >
             <Route index element={<Navigate to="/today" replace />} />
             <Route path="today" element={<TodayPage />} />
+            <Route path="meetings" element={<MeetingsPage />} />
             <Route path="contacts" element={<ContactsPage />} />
             <Route path="contacts/:id" element={<ContactDetailPage />} />
             <Route path="accounts" element={<AccountsPage />} />

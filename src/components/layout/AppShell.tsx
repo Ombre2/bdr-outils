@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, Building2, CalendarCheck, FileSpreadsheet, LogOut, Repeat, Search, Sun, UserRound } from 'lucide-react'
+import { BarChart3, Building2, CalendarCheck, CalendarClock, FileSpreadsheet, LogOut, Repeat, Search, Sun, UserRound } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 // Menu dans l'ordre d'usage : ce qu'on fait chaque jour en haut, les outils de suivi et de données en bas
 const NAV_DAILY = [
   { to: '/today', label: 'Ma Journée', icon: CalendarCheck },
+  { to: '/meetings', label: 'Rendez-vous', icon: CalendarClock },
   { to: '/contacts', label: 'Contacts', icon: UserRound },
   { to: '/accounts', label: 'Comptes', icon: Building2 },
   { to: '/cadences', label: 'Cadences', icon: Repeat },

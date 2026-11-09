@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react'
-import { Plus } from 'lucide-react'
+import { PhoneCall, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,19 +9,25 @@ import { MultiSelectFilter } from '@/components/MultiSelectFilter'
 import { Pagination, paginate } from '@/components/Pagination'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { ContactDialog } from '@/features/contacts/ContactDialog'
+import { LogCallDialog } from '@/features/calls/LogCallDialog'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { callHref, formatPhone, phoneDigits } from '@/lib/phone'
-import { localTimeLabel } from '@/lib/time'
+import { formatDateTime, localTimeLabel } from '@/lib/time'
+import { listRdvCallsForOwner } from '@/services/calls.repo'
 import { normalizeText } from '@/lib/text'
 import { countryLabel } from '@/lib/geo'
-import { CONTACT_STATUSES } from '@/types/models'
+import { CONTACT_STATUSES, type Contact } from '@/types/models'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function ContactsPage() {
-  const { contacts, accountById, phones, phonesOf, loading, teamView, ownerEmail, owners: teamOwners } = useDirectory()
+  const { contacts, accountById, phones, phonesOf, loading, refresh, teamView, ownerEmail, owners: teamOwners } = useDirectory()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [logFor, setLogFor] = useState<Contact | null>(null) // appel rapide, sans ouvrir la fiche
+  const [rdvByContact, setRdvByContact] = useState<Map<string, Date>>(new Map()) // dernier RDV pris par contact
+  const [rdvReloadKey, setRdvReloadKey] = useState(0)
+  const [accountSort, setAccountSort] = useState<'asc' | 'desc'>('asc')
   const [filter, setFilter] = useState('')
   // Filtres à choix multiples : liste vide = pas de filtre
   const [statuses, setStatuses] = useState<string[]>([])
@@ -40,6 +46,27 @@ export function ContactsPage() {
     const id = window.setInterval(() => setNow(new Date()), 30_000)
     return () => window.clearInterval(id)
   }, [])
+
+  // Dernier RDV pris par contact (vue personnelle seulement : la vue admin ne charge pas les appels de l'équipe)
+  useEffect(() => {
+    if (!user || teamView) return
+    let cancelled = false
+    listRdvCallsForOwner(user.uid)
+      .then((calls) => {
+        if (cancelled) return
+        const latest = new Map<string, Date>()
+        for (const call of calls) {
+          const when = (call.meetingAt ?? call.calledAt).toDate()
+          const previous = latest.get(call.contactId)
+          if (!previous || when > previous) latest.set(call.contactId, when)
+        }
+        setRdvByContact(latest)
+      })
+      .catch(() => !cancelled && setRdvByContact(new Map()))
+    return () => {
+      cancelled = true
+    }
+  }, [user, teamView, rdvReloadKey])
 
   // Numéros : à partir de 3 chiffres saisis, on retient les contacts dont un numéro correspond
   const phoneMatchIds = useMemo(() => {
@@ -67,6 +94,21 @@ export function ContactsPage() {
       return (q !== '' && haystack.includes(q)) || (phoneMatchIds?.has(c.id) ?? false)
     })
   }, [contacts, filter, statuses, countries, sources, industries, owners, phoneMatchIds, accountById])
+
+  // Tri par compte : les contacts d'un même compte se suivent. Sans compte : en bas de liste.
+  const sortedRows = useMemo(() => {
+    const dir = accountSort === 'asc' ? 1 : -1
+    return [...rows].sort((a, b) => {
+      const accountA = accountById(a.accountId)?.name ?? a.accountName ?? ''
+      const accountB = accountById(b.accountId)?.name ?? b.accountName ?? ''
+      if (!accountA !== !accountB) return accountA ? -1 : 1
+      return (
+        accountA.localeCompare(accountB, 'fr') * dir ||
+        a.lastName.localeCompare(b.lastName, 'fr') ||
+        a.firstName.localeCompare(b.firstName, 'fr')
+      )
+    })
+  }, [rows, accountById, accountSort])
 
   const ownerOptions = useMemo(() => teamOwners.map((o) => ({ value: o.id, label: o.label })), [teamOwners])
 
@@ -101,7 +143,7 @@ export function ContactsPage() {
     setPage(1)
   }
 
-  const pg = paginate(rows, page, pageSize)
+  const pg = paginate(sortedRows, page, pageSize)
 
   function stop(e: MouseEvent) {
     // Les liens d'appel/mailto: ne doivent pas ouvrir la fiche
@@ -199,40 +241,74 @@ export function ContactsPage() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Nom</TableHead>
-              <TableHead>Compte</TableHead>
-              <TableHead>Poste</TableHead>
+              <TableHead>Contact</TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  onClick={() => setAccountSort((s) => (s === 'asc' ? 'desc' : 'asc'))}
+                  className="inline-flex cursor-pointer items-center gap-1 font-medium hover:text-foreground"
+                  aria-label="Trier par compte"
+                >
+                  Compte {accountSort === 'asc' ? '↑' : '↓'}
+                </button>
+              </TableHead>
               <TableHead>Statut</TableHead>
-              <TableHead>Téléphone</TableHead>
+              <TableHead>Téléphones</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Heure locale</TableHead>
+              {!teamView && <TableHead className="w-24 text-right">Appel</TableHead>}
               {teamView && <TableHead>Propriétaire</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {pg.items.map((c) => {
-              const primary = phonesOf(c.id).find((p) => p.isPrimary) ?? phonesOf(c.id)[0]
-              const tel = primary ? callHref(primary.number) : null
+              const contactPhones = [...phonesOf(c.id)].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
               const accountName = accountById(c.accountId)?.name ?? c.accountName
               return (
                 <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/contacts/${c.id}`)}>
-                  <TableCell className="font-medium">
-                    {c.firstName} {c.lastName}
+                  <TableCell className="max-w-[260px]">
+                    <p className="font-medium">
+                      {c.firstName} {c.lastName}
+                    </p>
+                    {c.title && <p className="truncate text-xs text-muted-foreground">{c.title}</p>}
+                    {rdvByContact.has(c.id) && (
+                      <Badge className="mt-1 font-normal" title="Un RDV a déjà été pris avec ce contact">
+                        RDV déjà pris · {formatDateTime(rdvByContact.get(c.id)!)}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{accountName ?? '—'}</TableCell>
-                  <TableCell className="max-w-[180px] truncate text-muted-foreground">{c.title ?? '—'}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="font-normal">
                       {c.status}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {tel && primary ? (
-                      <a href={tel} onClick={stop} className="tabular-nums underline-offset-2 hover:underline">
-                        {formatPhone(primary.number)}
-                      </a>
-                    ) : (
+                    {contactPhones.length === 0 ? (
                       '—'
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {contactPhones.map((p) => {
+                          const href = callHref(p.number)
+                          return href ? (
+                            <a
+                              key={p.id}
+                              href={href}
+                              onClick={stop}
+                              title={`Appeler ${p.label.toLowerCase()}`}
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-xs tabular-nums hover:bg-accent"
+                            >
+                              <PhoneCall className="size-3" aria-hidden />
+                              {formatPhone(p.number)}
+                              {p.isPrimary && <span className="text-muted-foreground">· principal</span>}
+                            </a>
+                          ) : (
+                            <span key={p.id} className="text-xs tabular-nums">
+                              {formatPhone(p.number)}
+                            </span>
+                          )
+                        })}
+                      </div>
                     )}
                   </TableCell>
                   <TableCell>
@@ -247,6 +323,20 @@ export function ContactsPage() {
                   <TableCell className="tabular-nums text-muted-foreground">
                     {localTimeLabel(c.timezone, now) ?? '—'}
                   </TableCell>
+                  {!teamView && (
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          stop(e)
+                          setLogFor(c)
+                        }}
+                      >
+                        Logger
+                      </Button>
+                    </TableCell>
+                  )}
                   {teamView && <TableCell className="text-muted-foreground">{ownerEmail(c.ownerId) ?? '—'}</TableCell>}
                 </TableRow>
               )
@@ -275,6 +365,19 @@ export function ContactsPage() {
           setPage(1)
         }}
       />
+
+      {logFor && (
+        <LogCallDialog
+          open={!!logFor}
+          onOpenChange={(open) => !open && setLogFor(null)}
+          contact={logFor}
+          phones={phonesOf(logFor.id)}
+          onLogged={() => {
+            setRdvReloadKey((k) => k + 1)
+            void refresh()
+          }}
+        />
+      )}
 
       <ContactDialog
         open={creating}

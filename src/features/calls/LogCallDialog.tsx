@@ -53,6 +53,7 @@ export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhon
   const [status, setStatus] = useState<ContactStatus>(contact.status)
   const [statusReason, setStatusReason] = useState('')
   const [calledAtInput, setCalledAtInput] = useState('') // date et heure de l'appel, « AAAA-MM-JJTHH:mm »
+  const [meetingInput, setMeetingInput] = useState('') // date et heure du RDV, si résultat « RDV pris »
   const [saving, setSaving] = useState(false)
 
   const timezone = contact.timezone ?? deviceTimezone()
@@ -71,6 +72,7 @@ export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhon
     setStatus(contact.status)
     setStatusReason('')
     setCalledAtInput(toLocalInput(new Date())) // par défaut : maintenant
+    setMeetingInput('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, contact.id])
 
@@ -139,6 +141,15 @@ export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhon
       toast.error('La date de l’appel ne peut pas être dans le futur.')
       return
     }
+    if (outcome === 'RDV pris' && !meetingInput) {
+      toast.error('Indiquez la date et l’heure du RDV.')
+      return
+    }
+    const meetingAt = outcome === 'RDV pris' ? new Date(meetingInput) : null
+    if (meetingAt && Number.isNaN(meetingAt.getTime())) {
+      toast.error('Date du RDV invalide.')
+      return
+    }
 
     setSaving(true)
     try {
@@ -147,6 +158,7 @@ export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhon
         calledPhone: calledPhone || null,
         notes,
         nextReminderAt: reminderAt,
+        meetingAt,
         status,
         statusReason: statusChanged ? statusReason : null,
         calledAt,
@@ -203,6 +215,18 @@ export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhon
               ))}
             </div>
           </div>
+
+          {outcome === 'RDV pris' && (
+            <div className="space-y-1.5 rounded-md border border-primary/40 bg-accent/40 p-3">
+              <Label className="text-xs font-medium" htmlFor="meeting-at">Date et heure du RDV *</Label>
+              <Input
+                id="meeting-at"
+                type="datetime-local"
+                value={meetingInput}
+                onChange={(e) => setMeetingInput(e.target.value)}
+              />
+            </div>
+          )}
 
           <div className="grid gap-5 sm:grid-cols-2 [&>*]:min-w-0">
           <div className="space-y-1.5">
