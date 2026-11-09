@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { LogCallDialog } from '@/features/calls/LogCallDialog'
-import { formatPhone, telHref } from '@/lib/phone'
+import { callHref, formatPhone } from '@/lib/phone'
 import { endOfToday, startOfToday } from '@/lib/reminder'
 import { nextCadenceStep } from '@/lib/cadence'
 import { localTimeLabel } from '@/lib/time'
@@ -215,7 +215,7 @@ export function TodayPage() {
                   <TableCell>
                     <div className="flex flex-wrap gap-1.5">
                       {phones.map((p) => {
-                        const href = telHref(p.number)
+                        const href = callHref(p.number)
                         return href ? (
                           <a
                             key={p.id}

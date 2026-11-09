@@ -10,7 +10,7 @@ import { Pagination, paginate } from '@/components/Pagination'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { ContactDialog } from '@/features/contacts/ContactDialog'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
-import { formatPhone, phoneDigits, telHref } from '@/lib/phone'
+import { callHref, formatPhone, phoneDigits } from '@/lib/phone'
 import { localTimeLabel } from '@/lib/time'
 import { normalizeText } from '@/lib/text'
 import { countryLabel } from '@/lib/geo'
@@ -104,7 +104,7 @@ export function ContactsPage() {
   const pg = paginate(rows, page, pageSize)
 
   function stop(e: MouseEvent) {
-    // Les liens tel:/mailto: ne doivent pas ouvrir la fiche
+    // Les liens d'appel/mailto: ne doivent pas ouvrir la fiche
     e.stopPropagation()
   }
 
@@ -212,7 +212,7 @@ export function ContactsPage() {
           <TableBody>
             {pg.items.map((c) => {
               const primary = phonesOf(c.id).find((p) => p.isPrimary) ?? phonesOf(c.id)[0]
-              const tel = primary ? telHref(primary.number) : null
+              const tel = primary ? callHref(primary.number) : null
               const accountName = accountById(c.accountId)?.name ?? c.accountName
               return (
                 <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/contacts/${c.id}`)}>

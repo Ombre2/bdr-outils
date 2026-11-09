@@ -17,7 +17,7 @@ import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { nextCadenceStep } from '@/lib/cadence'
 import { countryLabel } from '@/lib/geo'
 import { formatDateTime } from '@/lib/time'
-import { formatPhone, telHref } from '@/lib/phone'
+import { callHref, formatPhone } from '@/lib/phone'
 import { safeLinkedinUrl } from '@/lib/text'
 import { CONTACT_STATUSES, PHONE_LABELS, STATUSES_REQUIRING_REASON, type ContactStatus, type StatusChange } from '@/types/models'
 import { completeCadenceStep, deleteContact, setContactCadence, setContactStatus, setPrimaryPhone } from '@/services/contacts.repo'
@@ -312,7 +312,7 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
             {[...phones]
               .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)) // le bon numéro en haut
               .map((p) => {
-              const href = telHref(p.number)
+              const href = callHref(p.number)
               return (
                 <li
                   key={p.id}

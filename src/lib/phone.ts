@@ -47,7 +47,7 @@ export function phoneDigits(value: string): string {
   return value.replace(/\D/g, '')
 }
 
-/** Lien tel: sûr (E.164 uniquement, jamais de texte libre). */
-export function telHref(e164: string): string | null {
-  return /^\+[1-9][0-9]{6,14}$/.test(e164) ? `tel:${e164}` : null
+/** Lien d'appel CloudTalk (ct+tel:, E.164 uniquement, jamais de texte libre). */
+export function callHref(e164: string): string | null {
+  return /^\+[1-9][0-9]{6,14}$/.test(e164) ? `ct+tel:${e164}` : null
 }

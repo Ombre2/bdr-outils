@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { formatPhone, parsePhone } from '@/lib/phone'
+import { callHref, formatPhone, parsePhone } from '@/lib/phone'
+
+describe('callHref : lien d\'appel CloudTalk', () => {
+  it('numéro E.164 : lien ct+tel: (ouvre CloudTalk, pas Linkus)', () => {
+    expect(callHref('+233205294019')).toBe('ct+tel:+233205294019')
+  })
+
+  it('numéro non E.164 ou texte libre : pas de lien', () => {
+    expect(callHref('0205294019')).toBeNull()
+    expect(callHref('tel:+233205294019')).toBeNull()
+  })
+})
 
 describe('parsePhone : formats saisis', () => {
   it('+1 919-864-6942 (États-Unis) : espaces et tirets ignorés', () => {
