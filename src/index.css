@@ -84,4 +84,10 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
+  /* Curseur main sur les boutons cliquables (le preflight Tailwind le remet à « défaut ») */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="combobox"]:not(:disabled) {
+    cursor: pointer;
+  }
 }
