@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, Building2, CalendarCheck, CalendarClock, FileSpreadsheet, LogOut, PanelLeftClose, PanelLeftOpen, Repeat, Search, Sun, UserRound } from 'lucide-react'
+import { BarChart3, Building2, CalendarCheck, CalendarClock, FileSpreadsheet, LogOut, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Repeat, Search, Sun, UserRound } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { NavLink, Outlet } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -20,10 +21,19 @@ const NAV_TOOLS = [
   { to: '/import-export', label: 'Import / Export', icon: FileSpreadsheet },
 ]
 
+// Cycle du thème : Système (défaut, suit l'ordinateur) → Clair → Sombre → Système
+const THEME_CYCLE = {
+  system: { next: 'light', icon: Monitor, label: 'Thème : système' },
+  light: { next: 'dark', icon: Sun, label: 'Thème : clair' },
+  dark: { next: 'system', icon: Moon, label: 'Thème : sombre' },
+} as const
+
 export function AppShell() {
   const { logout, user } = useAuth()
   const [searchOpen, setSearchOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false) // menu replié : icônes seules, plus de place pour le contenu
+  const { theme, setTheme } = useTheme()
+  const currentTheme = THEME_CYCLE[(theme as keyof typeof THEME_CYCLE) ?? 'system'] ?? THEME_CYCLE.system
 
   // Ctrl+K / Cmd+K : recherche accessible partout
   useEffect(() => {
@@ -85,6 +95,17 @@ export function AppShell() {
 
         <div className="border-t border-border p-2">
           {!collapsed && <p className="truncate px-2.5 pb-2 text-xs text-muted-foreground">{user?.email}</p>}
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn('mb-0.5 w-full', collapsed ? 'justify-center px-0' : 'justify-start')}
+            onClick={() => setTheme(currentTheme.next)}
+            title={currentTheme.label}
+            aria-label={currentTheme.label}
+          >
+            <currentTheme.icon className="size-4" aria-hidden />
+            {!collapsed && currentTheme.label}
+          </Button>
           <Button
             variant="ghost"
             size="sm"

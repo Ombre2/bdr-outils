@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
-/* Thème clair unique. Neutres zinc + UNE couleur primaire (bleu ardoise). */
+/* Variante dark pilotée par la classe .dark (posée par ThemeProvider), pas par la seule préférence système. */
+@custom-variant dark (&:is(.dark *));
+
+/* Neutres zinc + UNE couleur primaire (bleu ardoise). Clair par défaut, sombre via .dark. */
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.21 0.006 285);
@@ -23,6 +26,29 @@
   --ring: oklch(0.42 0.085 255);
   --radius: 0.5rem;
   color-scheme: light;
+}
+
+.dark {
+  --background: oklch(0.18 0.006 285);
+  --foreground: oklch(0.96 0.002 286);
+  --card: oklch(0.22 0.006 285);
+  --card-foreground: oklch(0.96 0.002 286);
+  --popover: oklch(0.22 0.006 285);
+  --popover-foreground: oklch(0.96 0.002 286);
+  --primary: oklch(0.72 0.085 255);
+  --primary-foreground: oklch(0.2 0.02 255);
+  --secondary: oklch(0.27 0.006 286);
+  --secondary-foreground: oklch(0.96 0.002 286);
+  --muted: oklch(0.27 0.006 286);
+  --muted-foreground: oklch(0.72 0.01 286);
+  --accent: oklch(0.27 0.006 286);
+  --accent-foreground: oklch(0.96 0.002 286);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.72 0.085 255);
+  color-scheme: dark;
 }
 
 @theme inline {

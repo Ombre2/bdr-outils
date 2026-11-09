@@ -344,7 +344,7 @@ function ImportPanel() {
             )}
 
             {warnings.map((w) => (
-              <p key={w} className="text-sm text-amber-700">
+              <p key={w} className="text-sm text-amber-700 dark:text-amber-400">
                 {w}
               </p>
             ))}
