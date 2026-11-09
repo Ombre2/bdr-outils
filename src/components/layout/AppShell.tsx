@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, Building2, CalendarCheck, CalendarClock, FileSpreadsheet, LogOut, Repeat, Search, Sun, UserRound } from 'lucide-react'
+import { BarChart3, Building2, CalendarCheck, CalendarClock, FileSpreadsheet, LogOut, PanelLeftClose, PanelLeftOpen, Repeat, Search, Sun, UserRound } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -23,6 +23,7 @@ const NAV_TOOLS = [
 export function AppShell() {
   const { logout, user } = useAuth()
   const [searchOpen, setSearchOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false) // menu replié : icônes seules, plus de place pour le contenu
 
   // Ctrl+K / Cmd+K : recherche accessible partout
   useEffect(() => {
@@ -36,54 +37,64 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
+  const toggleLabel = collapsed ? 'Déplier le menu' : 'Replier le menu'
+
+  function navLinkClass({ isActive }: { isActive: boolean }) {
+    return cn(
+      'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+      isActive && 'bg-accent font-medium text-foreground',
+      collapsed && 'justify-center px-0',
+    )
+  }
+
   return (
     <div className="flex h-svh overflow-hidden bg-background text-foreground">
-      <aside className="flex w-56 shrink-0 flex-col border-r border-border">
-        <div className="flex h-14 items-center gap-2 px-4 font-semibold tracking-tight">
-          <Sun className="size-4 text-primary" aria-hidden />
-          BDR Outils
+      <aside className={cn('flex shrink-0 flex-col border-r border-border transition-[width] duration-200', collapsed ? 'w-14' : 'w-56')}>
+        <div className={cn('flex h-14 items-center gap-2 px-3 font-semibold tracking-tight', collapsed ? 'justify-center' : 'justify-between')}>
+          {!collapsed && (
+            <span className="flex items-center gap-2 px-1">
+              <Sun className="size-4 text-primary" aria-hidden />
+              BDR Outils
+            </span>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => setCollapsed((c) => !c)} aria-label={toggleLabel} title={toggleLabel}>
+            {collapsed ? <PanelLeftOpen className="size-4" aria-hidden /> : <PanelLeftClose className="size-4" aria-hidden />}
+          </Button>
         </div>
 
         <nav className="flex flex-1 flex-col gap-0.5 px-2" aria-label="Navigation principale">
           {NAV_DAILY.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  isActive && 'bg-accent font-medium text-foreground',
-                )
-              }
-            >
+            <NavLink key={to} to={to} className={navLinkClass} title={label} aria-label={collapsed ? label : undefined}>
               <Icon className="size-4" aria-hidden />
-              {label}
+              {!collapsed && label}
             </NavLink>
           ))}
 
-          <p className="mt-4 px-2.5 pb-1 text-xs text-muted-foreground">Outils</p>
+          {collapsed ? (
+            <div className="my-2 border-t border-border" aria-hidden />
+          ) : (
+            <p className="mt-4 px-2.5 pb-1 text-xs text-muted-foreground">Outils</p>
+          )}
           {NAV_TOOLS.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  isActive && 'bg-accent font-medium text-foreground',
-                )
-              }
-            >
+            <NavLink key={to} to={to} className={navLinkClass} title={label} aria-label={collapsed ? label : undefined}>
               <Icon className="size-4" aria-hidden />
-              {label}
+              {!collapsed && label}
             </NavLink>
           ))}
         </nav>
 
         <div className="border-t border-border p-2">
-          <p className="truncate px-2.5 pb-2 text-xs text-muted-foreground">{user?.email}</p>
-          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => void logout()}>
+          {!collapsed && <p className="truncate px-2.5 pb-2 text-xs text-muted-foreground">{user?.email}</p>}
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn('w-full', collapsed ? 'justify-center px-0' : 'justify-start')}
+            onClick={() => void logout()}
+            title="Se déconnecter"
+            aria-label="Se déconnecter"
+          >
             <LogOut className="size-4" aria-hidden />
-            Se déconnecter
+            {!collapsed && 'Se déconnecter'}
           </Button>
         </div>
       </aside>
