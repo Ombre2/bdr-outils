@@ -13,9 +13,10 @@ import { LogCallDialog } from '@/features/calls/LogCallDialog'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { callHref, formatPhone, phoneDigits } from '@/lib/phone'
 import { formatDateTime, localTimeLabel } from '@/lib/time'
-import { listRdvCallsForOwner } from '@/services/calls.repo'
+import { rdvDateOf, useRdvCalls } from '@/features/calls/useRdvCalls'
 import { normalizeText, safeLinkedinUrl } from '@/lib/text'
 import { countryLabel } from '@/lib/geo'
+import { useListFilters } from '@/components/useListFilters'
 import { CONTACT_STATUSES, type Contact } from '@/types/models'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -25,18 +26,29 @@ export function ContactsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [logFor, setLogFor] = useState<Contact | null>(null) // appel rapide, sans ouvrir la fiche
-  const [rdvByContact, setRdvByContact] = useState<Map<string, Date>>(new Map()) // dernier RDV pris par contact
   const [rdvReloadKey, setRdvReloadKey] = useState(0)
-  const [accountSort, setAccountSort] = useState<'asc' | 'desc'>('asc')
-  const [hideUpcoming, setHideUpcoming] = useState(false) // masque les contacts avec un RDV encore à venir
-  const [filter, setFilter] = useState('')
+  const rdvCalls = useRdvCalls(rdvReloadKey)
+  const rdvByContact = useMemo(() => new Map([...rdvCalls].map(([id, call]) => [id, rdvDateOf(call)] as const)), [rdvCalls]) // dernier RDV pris par contact
+  // Filtres dans l'URL : ils restent actifs au retour depuis une fiche
+  const { text, list, flag, update, href } = useListFilters()
+  const accountSort = text('tri') === 'desc' ? 'desc' : 'asc'
+  const hideUpcoming = flag('masquer') // masque les contacts avec un RDV encore à venir
+  const filter = text('q')
   // Filtres à choix multiples : liste vide = pas de filtre
-  const [statuses, setStatuses] = useState<string[]>([])
-  const [countries, setCountries] = useState<string[]>([])
-  const [sources, setSources] = useState<string[]>([])
-  const [industries, setIndustries] = useState<string[]>([])
+  const statuses = list('statut')
+  const countries = list('pays')
+  const sources = list('source')
+  const industries = list('industrie')
   // Vue admin uniquement : filtre par BDR propriétaire
-  const [owners, setOwners] = useState<string[]>([])
+  const owners = list('proprietaire')
+  const setAccountSort = (v: 'asc' | 'desc') => update({ tri: v === 'desc' ? 'desc' : null })
+  const setHideUpcoming = (v: boolean) => update({ masquer: v ? '1' : null })
+  const setFilter = (v: string) => update({ q: v })
+  const setStatuses = (v: string[]) => update({ statut: v })
+  const setCountries = (v: string[]) => update({ pays: v })
+  const setSources = (v: string[]) => update({ source: v })
+  const setIndustries = (v: string[]) => update({ industrie: v })
+  const setOwners = (v: string[]) => update({ proprietaire: v })
   const [creating, setCreating] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(50)
@@ -47,27 +59,6 @@ export function ContactsPage() {
     const id = window.setInterval(() => setNow(new Date()), 30_000)
     return () => window.clearInterval(id)
   }, [])
-
-  // Dernier RDV pris par contact (vue personnelle seulement : la vue admin ne charge pas les appels de l'équipe)
-  useEffect(() => {
-    if (!user || teamView) return
-    let cancelled = false
-    listRdvCallsForOwner(user.uid)
-      .then((calls) => {
-        if (cancelled) return
-        const latest = new Map<string, Date>()
-        for (const call of calls) {
-          const when = (call.meetingAt ?? call.calledAt).toDate()
-          const previous = latest.get(call.contactId)
-          if (!previous || when > previous) latest.set(call.contactId, when)
-        }
-        setRdvByContact(latest)
-      })
-      .catch(() => !cancelled && setRdvByContact(new Map()))
-    return () => {
-      cancelled = true
-    }
-  }, [user, teamView, rdvReloadKey])
 
   // Numéros : à partir de 3 chiffres saisis, on retient les contacts dont un numéro correspond
   const phoneMatchIds = useMemo(() => {
@@ -158,13 +149,7 @@ export function ContactsPage() {
   const filtersActive = Boolean(filter || statuses.length || countries.length || sources.length || industries.length || owners.length || hideUpcoming)
 
   function resetFilters() {
-    setFilter('')
-    setStatuses([])
-    setCountries([])
-    setSources([])
-    setIndustries([])
-    setOwners([])
-    setHideUpcoming(false)
+    update({ q: null, statut: null, pays: null, source: null, industrie: null, proprietaire: null, masquer: null })
     setPage(1)
   }
 
@@ -261,7 +246,7 @@ export function ContactsPage() {
             size="sm"
             aria-pressed={hideUpcoming}
             onClick={() => {
-              setHideUpcoming((v) => !v)
+              setHideUpcoming(!hideUpcoming)
               setPage(1)
             }}
           >
@@ -283,7 +268,7 @@ export function ContactsPage() {
               <TableHead>
                 <button
                   type="button"
-                  onClick={() => setAccountSort((s) => (s === 'asc' ? 'desc' : 'asc'))}
+                  onClick={() => setAccountSort(accountSort === 'asc' ? 'desc' : 'asc')}
                   className="inline-flex cursor-pointer items-center gap-1 font-medium hover:text-foreground"
                   aria-label="Trier par compte"
                 >
@@ -303,7 +288,7 @@ export function ContactsPage() {
               const contactPhones = [...phonesOf(c.id)].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
               const accountName = accountById(c.accountId)?.name ?? c.accountName
               return (
-                <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/contacts/${c.id}`)}>
+                <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/contacts/${c.id}`, { state: { from: href } })}>
                   <TableCell className="max-w-[260px]">
                     <p className="flex items-center gap-1.5 font-medium">
                       <span>

@@ -324,11 +324,12 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.keys().hasOnly([
           'ownerId', 'contactId', 'accountId', 'calledAt', 'calledPhone',
-          'outcome', 'notes', 'nextReminderAt', 'meetingAt', 'createdAt', 'editedAt'])
+          'outcome', 'notes', 'nextReminderAt', 'meetingAt', 'createdAt', 'editedAt', 'compteRendu'])
         && request.resource.data.outcome in
              ['NPR', 'Messagerie', 'Mauvais numéro', 'Dead', 'Not good Contact', 'Nurturing', 'R1', 'No Show', 'Argumenté', 'Rappel demandé', 'RDV pris', 'Refus']
         && isOptionalE164(request.resource.data.calledPhone)
         && isOptionalString(request.resource.data.notes, 5000)
+        && isOptionalString(request.resource.data.get('compteRendu', null), 20000)
         && isOptionalTimestamp(request.resource.data.nextReminderAt)
         && isOptionalTimestamp(request.resource.data.get('meetingAt', null))
         && request.resource.data.calledAt is timestamp

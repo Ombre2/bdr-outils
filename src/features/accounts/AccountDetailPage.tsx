@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ArrowLeft, ExternalLink, Pencil, Trash2, X } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { backTarget } from '@/lib/url-filters'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -20,6 +21,7 @@ const ACCOUNT_TAB = 'account'
 export function AccountDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const { accountById, contacts, refresh, loading, teamView, ownerEmail } = useDirectory()
   const [editing, setEditing] = useState(false)
@@ -78,7 +80,7 @@ export function AccountDetailPage() {
 
   return (
     <section className="space-y-6">
-      <Link to="/accounts" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link to={backTarget(location.state, '/accounts')} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden /> Comptes
       </Link>
 

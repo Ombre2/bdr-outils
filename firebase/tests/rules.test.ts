@@ -329,6 +329,13 @@ describe('Appels (journal)', () => {
     await assertFails(updateDoc(doc(db, 'calls', 'call9'), { notes: 'modifié' }))
   })
 
+  it('enregistre un compte rendu de RDV, mais pas un compte rendu trop long', async () => {
+    const db = ctxFor(BDR_A)
+    await assertSucceeds(setDoc(doc(db, 'calls', 'call13'), { ...validCall(BDR_A.uid), outcome: 'RDV pris', meetingAt: Timestamp.fromDate(new Date(Date.now() - 86400000)) }))
+    await assertSucceeds(updateDoc(doc(db, 'calls', 'call13'), { compteRendu: 'Intéressé, envoyer la proposition', editedAt: serverTimestamp() }))
+    await assertFails(updateDoc(doc(db, 'calls', 'call13'), { compteRendu: 'x'.repeat(20001), editedAt: serverTimestamp() }))
+  })
+
   it('un autre BDR ne peut pas corriger un appel', async () => {
     await assertSucceeds(setDoc(doc(ctxFor(BDR_A), 'calls', 'call10'), validCall(BDR_A.uid)))
     await assertFails(updateDoc(doc(ctxFor(BDR_B), 'calls', 'call10'), { notes: 'piraté', editedAt: serverTimestamp() }))

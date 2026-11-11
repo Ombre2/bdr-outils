@@ -11,6 +11,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { cleanText } from '@/lib/text'
+import { richTextLength, sanitizeRichText } from '@/lib/rich-text'
 import { db } from '@/services/firebase'
 import { addStatusChangeToBatch, checkStatusReason } from '@/services/status-history.repo'
 import { CALL_OUTCOMES, CONTACT_STATUSES, type Call, type CallOutcome, type Contact, type ContactStatus } from '@/types/models'
@@ -94,6 +95,16 @@ export async function updateCall(callId: string, input: CallCorrection): Promise
     notes: cleanText(input.notes, 5000),
     calledAt: Timestamp.fromDate(input.calledAt),
     meetingAt: input.meetingAt ? Timestamp.fromDate(input.meetingAt) : null,
+    editedAt: serverTimestamp(),
+  })
+}
+
+/** Compte rendu d'un RDV, en texte riche (vide = compte rendu effacé). */
+export async function saveCompteRendu(callId: string, html: string): Promise<void> {
+  const compteRendu = sanitizeRichText(html)
+  if (richTextLength(compteRendu) > 5000) throw new CallInputError('Le compte rendu ne peut pas dépasser 5000 caractères.')
+  await updateDoc(doc(db, 'calls', callId), {
+    compteRendu: richTextLength(compteRendu) > 0 ? compteRendu : null,
     editedAt: serverTimestamp(),
   })
 }

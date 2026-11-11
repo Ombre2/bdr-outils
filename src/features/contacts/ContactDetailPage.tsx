@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ArrowLeft, Check, Copy, Loader2, PhoneCall, Pencil, Plus, Trash2 } from 'lucide-react'
 import { buildContactCopyText } from '@/lib/contact-copy'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { backTarget } from '@/lib/url-filters'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ interface ContactDetailViewProps {
 /** Fiche d'un contact. Utilisée seule (page /contacts/:id) ou dans un onglet de la page compte. */
 export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDetailViewProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const { contacts, accountById, phonesOf, emailsOf, refresh, loading, cadences, cadenceById, teamView, ownerEmail } = useDirectory()
   const [editing, setEditing] = useState(false)
@@ -231,7 +233,7 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
   return (
     <section className="space-y-6">
       {!embedded && (
-        <Link to="/contacts" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link to={backTarget(location.state, '/contacts')} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-4" aria-hidden /> Contacts
         </Link>
       )}

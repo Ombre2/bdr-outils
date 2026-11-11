@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { RichTextView } from '@/components/RichTextEditor'
 import { EditCallDialog } from '@/features/calls/EditCallDialog'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { formatDateTime } from '@/lib/time'
@@ -78,6 +79,12 @@ export function CallTimeline({ ownerId, contactId, accountId, reloadKey, showCon
               {call.editedAt && <span className="text-xs text-muted-foreground">(corrigé)</span>}
             </div>
             {call.notes && <p className="mt-1 whitespace-pre-line">{call.notes}</p>}
+            {call.compteRendu && (
+              <div className="mt-2 rounded-md bg-muted/50 px-3 py-2">
+                <p className="text-xs font-medium text-muted-foreground">Compte rendu du RDV</p>
+                <RichTextView html={call.compteRendu} className="mt-1" />
+              </div>
+            )}
             {call.meetingAt && (
               <p className="mt-1 text-xs font-medium">
                 RDV : {formatDateTime(call.meetingAt.toDate())}

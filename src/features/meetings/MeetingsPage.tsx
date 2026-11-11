@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { RdvDialog } from '@/features/calls/RdvDialog'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { formatDateTime } from '@/lib/time'
 import { listMeetingsForOwner } from '@/services/calls.repo'
@@ -16,6 +17,9 @@ export function MeetingsPage() {
   const [meetings, setMeetings] = useState<Call[] | null>(null)
   const [error, setError] = useState(false)
   const [showPast, setShowPast] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0) // rechargé après l'enregistrement d'un compte rendu
+  const [openRdv, setOpenRdv] = useState<Call | null>(null) // RDV dont le détail est ouvert
+  const [now] = useState(() => Date.now()) // heure d'ouverture : sépare RDV à venir et passés
 
   useEffect(() => {
     if (!user) return
@@ -26,18 +30,22 @@ export function MeetingsPage() {
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, reloadKey])
 
   const contactById = useMemo(() => new Map(contacts.map((c) => [c.id, c])), [contacts])
 
+  function contactNameOf(call: Call): string {
+    const contact = contactById.get(call.contactId)
+    return contact ? `${contact.firstName} ${contact.lastName}` : 'Contact'
+  }
+
   const { upcoming, past } = useMemo(() => {
-    const now = Date.now()
     const sorted = [...(meetings ?? [])].sort((a, b) => a.meetingAt!.toMillis() - b.meetingAt!.toMillis())
     return {
       upcoming: sorted.filter((m) => m.meetingAt!.toMillis() >= now),
       past: sorted.filter((m) => m.meetingAt!.toMillis() < now).reverse(), // les plus récents d'abord
     }
-  }, [meetings])
+  }, [meetings, now])
 
   const visible = showPast ? past : upcoming
 
@@ -65,14 +73,24 @@ export function MeetingsPage() {
               <TableHead>Statut</TableHead>
               <TableHead>Appel du</TableHead>
               <TableHead>Notes</TableHead>
+              <TableHead>Compte rendu</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {visible.map((m) => {
               const contact = contactById.get(m.contactId)
+              const done = m.meetingAt!.toMillis() < now
               return (
                 <TableRow key={m.id}>
-                  <TableCell className="font-medium tabular-nums">{formatDateTime(m.meetingAt!.toDate())}</TableCell>
+                  <TableCell className="font-medium tabular-nums">
+                    <button
+                      type="button"
+                      className="cursor-pointer text-left hover:underline"
+                      onClick={() => setOpenRdv(m)}
+                    >
+                      {formatDateTime(m.meetingAt!.toDate())}
+                    </button>
+                  </TableCell>
                   <TableCell>
                     {contact ? (
                       <>
@@ -99,12 +117,23 @@ export function MeetingsPage() {
                   <TableCell className="max-w-xs">
                     <p className="line-clamp-2 whitespace-pre-line text-sm text-muted-foreground">{m.notes ?? ''}</p>
                   </TableCell>
+                  <TableCell>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setOpenRdv(m)}
+                    >
+                      {m.compteRendu ? 'Voir le CR' : done ? 'Faire le CR' : 'Préparer le CR'}
+                    </Button>
+                  </TableCell>
                 </TableRow>
               )
             })}
             {visible.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                   {error
                     ? 'Rendez-vous indisponibles pour le moment.'
                     : meetings === null || loading
@@ -118,6 +147,17 @@ export function MeetingsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {openRdv && (
+        <RdvDialog
+          open
+          onOpenChange={(open) => !open && setOpenRdv(null)}
+          call={openRdv}
+          contactName={contactNameOf(openRdv)}
+          done={openRdv.meetingAt!.toMillis() < now}
+          onSaved={() => setReloadKey((k) => k + 1)}
+        />
+      )}
     </section>
   )
 }
