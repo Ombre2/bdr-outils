@@ -17,6 +17,7 @@ import { ActivityDialog } from '@/features/contacts/ActivityDialog'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { nextCadenceStep } from '@/lib/cadence'
 import { countryLabel } from '@/lib/geo'
+import { isNewContact } from '@/lib/new-contact'
 import { formatDateTime } from '@/lib/time'
 import { callHref, formatPhone } from '@/lib/phone'
 import { safeLinkedinUrl } from '@/lib/text'
@@ -47,6 +48,7 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
   const [history, setHistory] = useState<StatusChange[]>([])
   const [updatingPhone, setUpdatingPhone] = useState<string | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
+  const [now] = useState(() => new Date())
   const [activityKey, setActivityKey] = useState(0)
   const [activityOpen, setActivityOpen] = useState(false)
   const [cadenceChoice, setCadenceChoice] = useState('')
@@ -247,6 +249,7 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
             <Badge variant="outline" className="font-normal">
               {contact.status}
             </Badge>
+            {isNewContact(contact.createdAt, now) && <Badge className="font-normal">Nouveau</Badge>}
           </div>
           {teamView && <p className="text-sm text-muted-foreground">Propriétaire : {ownerEmail(contact.ownerId) ?? '—'}</p>}
         </div>

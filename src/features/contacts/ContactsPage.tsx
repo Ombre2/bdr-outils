@@ -14,6 +14,7 @@ import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { callHref, formatPhone, phoneDigits } from '@/lib/phone'
 import { formatDateTime, localTimeLabel } from '@/lib/time'
 import { rdvDateOf, useRdvCalls } from '@/features/calls/useRdvCalls'
+import { isNewContact } from '@/lib/new-contact'
 import { normalizeText, safeLinkedinUrl } from '@/lib/text'
 import { countryLabel } from '@/lib/geo'
 import { useListFilters } from '@/components/useListFilters'
@@ -265,7 +266,7 @@ export function ContactsPage() {
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Contact</TableHead>
-              <TableHead>
+              <TableHead className="hidden md:table-cell">
                 <button
                   type="button"
                   onClick={() => setAccountSort(accountSort === 'asc' ? 'desc' : 'asc')}
@@ -275,10 +276,10 @@ export function ContactsPage() {
                   Compte {accountSort === 'asc' ? '↑' : '↓'}
                 </button>
               </TableHead>
-              <TableHead>Statut</TableHead>
+              <TableHead className="hidden md:table-cell">Statut</TableHead>
               <TableHead>Téléphones</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Heure locale</TableHead>
+              <TableHead className="hidden lg:table-cell">Email</TableHead>
+              <TableHead className="hidden lg:table-cell">Heure locale</TableHead>
               {!teamView && <TableHead className="w-24 text-right">Appel</TableHead>}
               {teamView && <TableHead>Propriétaire</TableHead>}
             </TableRow>
@@ -294,6 +295,7 @@ export function ContactsPage() {
                       <span>
                         {c.firstName} {c.lastName}
                       </span>
+                      {isNewContact(c.createdAt, now) && <Badge className="font-normal">Nouveau</Badge>}
                       {safeLinkedinUrl(c.linkedinUrl) && (
                         <a
                           href={safeLinkedinUrl(c.linkedinUrl)!}
@@ -309,14 +311,15 @@ export function ContactsPage() {
                       )}
                     </p>
                     {c.title && <p className="truncate text-xs text-muted-foreground">{c.title}</p>}
+                    {accountName && <p className="truncate text-xs text-muted-foreground md:hidden">{accountName}</p>}
                     {rdvByContact.has(c.id) && (
                       <Badge className="mt-1 font-normal" title="Un RDV a déjà été pris avec ce contact">
                         RDV déjà pris · {formatDateTime(rdvByContact.get(c.id)!)}
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{accountName ?? '—'}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden text-muted-foreground md:table-cell">{accountName ?? '—'}</TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <Badge variant="outline" className="font-normal">
                       {c.status}
                     </Badge>
@@ -349,7 +352,7 @@ export function ContactsPage() {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     {c.email && EMAIL_RE.test(c.email) ? (
                       <a href={`mailto:${c.email}`} onClick={stop} className="underline-offset-2 hover:underline">
                         {c.email}
@@ -358,7 +361,7 @@ export function ContactsPage() {
                       '—'
                     )}
                   </TableCell>
-                  <TableCell className="tabular-nums text-muted-foreground">
+                  <TableCell className="hidden tabular-nums text-muted-foreground lg:table-cell">
                     {localTimeLabel(c.timezone, now) ?? '—'}
                   </TableCell>
                   {!teamView && (

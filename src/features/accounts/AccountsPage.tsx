@@ -216,7 +216,7 @@ export function AccountsPage() {
               <TableHead>Entreprise</TableHead>
               {!teamView && <TableHead>Rendez-vous</TableHead>}
               {teamView && <TableHead>Propriétaire</TableHead>}
-              <TableHead>Pays</TableHead>
+              <TableHead className="hidden md:table-cell">Pays</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -244,7 +244,7 @@ export function AccountsPage() {
                   </TableCell>
                 )}
                 {teamView && <TableCell className="text-muted-foreground">{ownerEmail(a.ownerId) ?? '—'}</TableCell>}
-                <TableCell>{countryLabel(a.country)}</TableCell>
+                <TableCell className="hidden md:table-cell">{countryLabel(a.country)}</TableCell>
               </TableRow>
             ))}
             {!loading && rows.length === 0 && (

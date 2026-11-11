@@ -69,10 +69,10 @@ export function MeetingsPage() {
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-44">Date du RDV</TableHead>
               <TableHead>Contact</TableHead>
-              <TableHead>Compte</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Appel du</TableHead>
-              <TableHead>Notes</TableHead>
+              <TableHead className="hidden md:table-cell">Compte</TableHead>
+              <TableHead className="hidden lg:table-cell">Statut</TableHead>
+              <TableHead className="hidden lg:table-cell">Appel du</TableHead>
+              <TableHead className="hidden md:table-cell">Notes</TableHead>
               <TableHead>Compte rendu</TableHead>
             </TableRow>
           </TableHeader>
@@ -103,18 +103,18 @@ export function MeetingsPage() {
                       <span className="text-muted-foreground">Contact introuvable</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="hidden text-muted-foreground md:table-cell">
                     {accountById(m.accountId)?.name ?? contact?.accountName ?? '—'}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     {contact && (
                       <Badge variant="outline" className="font-normal">
                         {contact.status}
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="tabular-nums text-muted-foreground">{formatDateTime(m.calledAt.toDate())}</TableCell>
-                  <TableCell className="max-w-xs">
+                  <TableCell className="hidden tabular-nums text-muted-foreground lg:table-cell">{formatDateTime(m.calledAt.toDate())}</TableCell>
+                  <TableCell className="hidden max-w-xs md:table-cell">
                     <p className="line-clamp-2 whitespace-pre-line text-sm text-muted-foreground">{m.notes ?? ''}</p>
                   </TableCell>
                   <TableCell>
