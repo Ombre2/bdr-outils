@@ -91,9 +91,16 @@ export interface Call {
   notes: string | null
   nextReminderAt: Timestamp | null
   meetingAt?: Timestamp | null // date et heure du RDV, obligatoire si résultat « RDV pris »
+  meetingHistory?: MeetingChange[] // anciennes dates du RDV, à chaque report
   compteRendu?: string | null // compte rendu rédigé après le RDV
   createdAt: Timestamp
   editedAt?: Timestamp | null // dernière correction
+}
+
+/** Trace d'un report de RDV : l'ancienne date, et le moment où le changement a été fait. */
+export interface MeetingChange {
+  previousAt: Timestamp
+  changedAt: Timestamp
 }
 
 export interface Activity {

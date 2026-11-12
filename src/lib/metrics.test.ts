@@ -42,6 +42,15 @@ describe('periodRange', () => {
     expect(r.end.getHours()).toBe(23)
   })
 
+  it('hier couvre la journée précédente, y compris le passage de mois', () => {
+    const r = periodRange('yesterday', new Date(2026, 10, 1, 9, 0, 0))!
+    expect(r.start.getMonth()).toBe(9)
+    expect(r.start.getDate()).toBe(31)
+    expect(r.start.getHours()).toBe(0)
+    expect(r.end.getDate()).toBe(31)
+    expect(r.end.getHours()).toBe(23)
+  })
+
   it('la semaine commence le lundi et finit le dimanche', () => {
     const r = periodRange('week', now)!
     expect(r.start.getDay()).toBe(1) // lundi

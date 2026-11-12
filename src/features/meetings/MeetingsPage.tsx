@@ -90,6 +90,11 @@ export function MeetingsPage() {
                     >
                       {formatDateTime(m.meetingAt!.toDate())}
                     </button>
+                    {m.meetingHistory && m.meetingHistory.length > 0 && (
+                      <Badge variant="outline" className="ml-2 border-amber-400 font-normal text-amber-700 dark:text-amber-300">
+                        Reporté
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     {contact ? (

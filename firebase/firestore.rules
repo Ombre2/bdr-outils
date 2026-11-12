@@ -67,6 +67,10 @@ service cloud.firestore {
       return v == null || v is timestamp;
     }
 
+    function isOptionalMeetingHistory(v) {
+      return v == null || (v is list && v.size() <= 50);
+    }
+
     function isOptionalE164(v) {
       return v == null || (v is string && v.matches('^\\+[1-9][0-9]{6,14}$'));
     }
@@ -324,7 +328,8 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.keys().hasOnly([
           'ownerId', 'contactId', 'accountId', 'calledAt', 'calledPhone',
-          'outcome', 'notes', 'nextReminderAt', 'meetingAt', 'createdAt', 'editedAt', 'compteRendu'])
+          'outcome', 'notes', 'nextReminderAt', 'meetingAt', 'meetingHistory', 'createdAt', 'editedAt', 'compteRendu'])
+        && isOptionalMeetingHistory(request.resource.data.get('meetingHistory', null))
         && request.resource.data.outcome in
              ['NPR', 'Messagerie', 'Mauvais numéro', 'Dead', 'Not good Contact', 'Nurturing', 'R1', 'No Show', 'Argumenté', 'Rappel demandé', 'RDV pris', 'Refus']
         && isOptionalE164(request.resource.data.calledPhone)

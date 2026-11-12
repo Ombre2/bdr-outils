@@ -30,3 +30,9 @@ export function formatDateTime(date: Date | null | undefined): string {
     minute: '2-digit',
   }).format(date)
 }
+
+/** Date et heure locales au format d'un champ datetime-local (« AAAA-MM-JJTHH:mm »). */
+export function toDateTimeInput(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}

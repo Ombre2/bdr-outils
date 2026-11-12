@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { BarChart3, Building2, CalendarCheck, CalendarClock, FileSpreadsheet, LogOut, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Repeat, Search, Sun, UserRound, X } from 'lucide-react'
+import { Fragment, useEffect, useState } from 'react'
+import { BarChart3, Building2, CalendarCheck, CalendarClock, FileSpreadsheet, History, LogOut, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Repeat, Search, Sun, UserRound, X } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { NavLink, Outlet } from 'react-router'
 import { Button } from '@/components/ui/button'
@@ -7,18 +7,31 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { Omnisearch } from '@/features/search/Omnisearch'
 import { cn } from '@/lib/utils'
 
-// Menu dans l'ordre d'usage : ce qu'on fait chaque jour en haut, les outils de suivi et de données en bas
-const NAV_DAILY = [
-  { to: '/today', label: 'Ma Journée', icon: CalendarCheck },
-  { to: '/meetings', label: 'Rendez-vous', icon: CalendarClock },
-  { to: '/contacts', label: 'Contacts', icon: UserRound },
-  { to: '/accounts', label: 'Comptes', icon: Building2 },
-  { to: '/cadences', label: 'Cadences', icon: Repeat },
-]
-
-const NAV_TOOLS = [
-  { to: '/dashboard', label: 'Tableau de bord', icon: BarChart3 },
-  { to: '/import-export', label: 'Import / Export', icon: FileSpreadsheet },
+// Menu par groupes, dans l'ordre d'usage : ce qu'on fait chaque jour, le travail de prospection, puis les outils
+const NAV_GROUPS = [
+  {
+    title: 'Aujourd’hui',
+    items: [
+      { to: '/today', label: 'Ma Journée', icon: CalendarCheck },
+      { to: '/meetings', label: 'Rendez-vous', icon: CalendarClock },
+    ],
+  },
+  {
+    title: 'Prospection',
+    items: [
+      { to: '/calls', label: 'Historique', icon: History },
+      { to: '/contacts', label: 'Contacts', icon: UserRound },
+      { to: '/accounts', label: 'Comptes', icon: Building2 },
+      { to: '/cadences', label: 'Cadences', icon: Repeat },
+    ],
+  },
+  {
+    title: 'Outils',
+    items: [
+      { to: '/dashboard', label: 'Tableau de bord', icon: BarChart3 },
+      { to: '/import-export', label: 'Import / Export', icon: FileSpreadsheet },
+    ],
+  },
 ]
 
 // Cycle du thème : Système (défaut, suit l'ordinateur) → Clair → Sombre → Système
@@ -65,23 +78,20 @@ function Sidebar({ collapsed, onToggleCollapse, onNavigate }: SidebarProps) {
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 px-2" aria-label="Navigation principale">
-        {NAV_DAILY.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={navLinkClass} title={label} aria-label={collapsed ? label : undefined} onClick={onNavigate}>
-            <Icon className="size-4" aria-hidden />
-            {!collapsed && label}
-          </NavLink>
-        ))}
-
-        {collapsed ? (
-          <div className="my-2 border-t border-border" aria-hidden />
-        ) : (
-          <p className="mt-4 px-2.5 pb-1 text-xs text-muted-foreground">Outils</p>
-        )}
-        {NAV_TOOLS.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={navLinkClass} title={label} aria-label={collapsed ? label : undefined} onClick={onNavigate}>
-            <Icon className="size-4" aria-hidden />
-            {!collapsed && label}
-          </NavLink>
+        {NAV_GROUPS.map(({ title, items }, index) => (
+          <Fragment key={title}>
+            {collapsed ? (
+              index > 0 && <div className="my-2 border-t border-border" aria-hidden />
+            ) : (
+              <p className={cn('px-2.5 pb-1 text-xs text-muted-foreground', index > 0 ? 'mt-4' : 'mt-1')}>{title}</p>
+            )}
+            {items.map(({ to, label, icon: Icon }) => (
+              <NavLink key={to} to={to} className={navLinkClass} title={label} aria-label={collapsed ? label : undefined} onClick={onNavigate}>
+                <Icon className="size-4" aria-hidden />
+                {!collapsed && label}
+              </NavLink>
+            ))}
+          </Fragment>
         ))}
       </nav>
 

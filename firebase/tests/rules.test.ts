@@ -307,6 +307,18 @@ describe('Appels (journal)', () => {
     await assertSucceeds(updateDoc(doc(db, 'calls', 'call11'), { meetingAt, editedAt: serverTimestamp() }))
   })
 
+  it('enregistre le report d\'un RDV avec la trace de l\'ancienne date', async () => {
+    const db = ctxFor(BDR_A)
+    const meetingAt = Timestamp.fromDate(new Date(Date.now() + 2 * 86400000))
+    const previousAt = Timestamp.fromDate(new Date(Date.now() + 86400000))
+    await assertSucceeds(setDoc(doc(db, 'calls', 'call14'), { ...validCall(BDR_A.uid), outcome: 'RDV pris', meetingAt: previousAt }))
+    await assertSucceeds(updateDoc(doc(db, 'calls', 'call14'), {
+      meetingAt,
+      meetingHistory: [{ previousAt, changedAt: Timestamp.now() }],
+      editedAt: serverTimestamp(),
+    }))
+  })
+
   it('refuse une date de RDV qui n\'est pas une date', async () => {
     await assertFails(setDoc(doc(ctxFor(BDR_A), 'calls', 'call12'), { ...validCall(BDR_A.uid), outcome: 'RDV pris', meetingAt: '2026-11-12T14:30' }))
   })

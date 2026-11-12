@@ -88,7 +88,7 @@ node node_modules/firebase-tools/lib/bin/firebase.js deploy --only firestore:rul
 
 ## 9. Interface
 
-- Menu : les éléments du quotidien en haut (Ma Journée, Contacts, Comptes, Cadences), les outils en bas (Tableau de bord, Import / Export). Voir `AppShell.tsx`.
+- Menu : trois groupes, dans cet ordre. « Aujourd'hui » (Ma Journée, Rendez-vous), « Prospection » (Historique, Contacts, Comptes, Cadences), « Outils » (Tableau de bord, Import / Export). Voir `NAV_GROUPS` dans `AppShell.tsx`.
 - La fiche contact (`ContactDetailPage.tsx`) est l'écran central : éviter d'ajouter des modales quand une action peut tenir dans la carte.
 - Vérifier le rendu dans le navigateur (`npm run dev`) pour tout changement visuel. Dire clairement ce qui n'a pas été testé.
 

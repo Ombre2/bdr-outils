@@ -1,5 +1,6 @@
 import {
   Timestamp,
+  arrayUnion,
   collection,
   doc,
   getDocs,
@@ -95,6 +96,17 @@ export async function updateCall(callId: string, input: CallCorrection): Promise
     notes: cleanText(input.notes, 5000),
     calledAt: Timestamp.fromDate(input.calledAt),
     meetingAt: input.meetingAt ? Timestamp.fromDate(input.meetingAt) : null,
+    editedAt: serverTimestamp(),
+  })
+}
+
+/** Report d'un RDV : la date change, l'ancienne est gardée dans meetingHistory. Le reste de l'appel est conservé. */
+export async function rescheduleMeeting(callId: string, meetingAt: Date, previousAt: Date): Promise<void> {
+  if (Number.isNaN(meetingAt.getTime())) throw new CallInputError('Date du RDV invalide.')
+  await updateDoc(doc(db, 'calls', callId), {
+    meetingAt: Timestamp.fromDate(meetingAt),
+    // Timestamp.now() car serverTimestamp() n'est pas accepté dans un tableau
+    meetingHistory: arrayUnion({ previousAt: Timestamp.fromDate(previousAt), changedAt: Timestamp.now() }),
     editedAt: serverTimestamp(),
   })
 }

@@ -1,8 +1,9 @@
-export const PERIOD_KEYS = ['today', 'week', 'month', 'custom'] as const
+export const PERIOD_KEYS = ['today', 'yesterday', 'week', 'month', 'custom'] as const
 export type PeriodKey = (typeof PERIOD_KEYS)[number]
 
 export const PERIOD_LABELS: Record<PeriodKey, string> = {
   today: "Aujourd'hui",
+  yesterday: 'Hier',
   week: 'Cette semaine',
   month: 'Ce mois',
   custom: 'Personnalisé',
@@ -39,6 +40,14 @@ export function periodRange(
       const start = new Date(now)
       start.setHours(0, 0, 0, 0)
       const end = new Date(now)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
+    case 'yesterday': {
+      const start = new Date(now)
+      start.setDate(start.getDate() - 1)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date(start)
       end.setHours(23, 59, 59, 999)
       return { start, end }
     }
