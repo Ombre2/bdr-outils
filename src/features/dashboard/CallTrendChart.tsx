@@ -5,7 +5,7 @@ import { FormSelect } from '@/components/FormSelect'
 import { Button } from '@/components/ui/button'
 import { buildBuckets, bucketStart, type Granularity } from '@/lib/trend'
 import { cn } from '@/lib/utils'
-import { CALL_OUTCOMES, type Call, type CallOutcome } from '@/types/models'
+import { CALL_OUTCOMES, outcomeLabel, type Call, type CallOutcome } from '@/types/models'
 
 interface Props {
   calls: readonly Call[]
@@ -63,7 +63,7 @@ export function CallTrendChart({ calls, start, end }: Props) {
             className="w-56"
             value={outcome}
             onValueChange={(v) => setOutcome(v as CallOutcome | 'all')}
-            options={[{ value: 'all', label: 'Tous les résultats' }, ...CALL_OUTCOMES.map((o) => ({ value: o, label: o }))]}
+            options={[{ value: 'all', label: 'Tous les résultats' }, ...CALL_OUTCOMES.map((o) => ({ value: o, label: outcomeLabel(o) }))]}
             ariaLabel="Résultat affiché dans le graphique"
           />
           <div className="inline-flex rounded-md border border-border p-0.5" role="group" aria-label="Regroupement">

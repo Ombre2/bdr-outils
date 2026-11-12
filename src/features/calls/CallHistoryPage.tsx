@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FormSelect } from '@/components/FormSelect'
 import { Input } from '@/components/ui/input'
+import { Pagination, paginate } from '@/components/Pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
@@ -13,7 +14,7 @@ import { PERIOD_KEYS, PERIOD_LABELS, formatRangeLabel, periodRange, type PeriodK
 import { formatDateTime } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { listCallsBetween, listTeamCallsBetween } from '@/services/calls.repo'
-import type { Call } from '@/types/models'
+import { outcomeLabel, type Call } from '@/types/models'
 
 const DEFAULT_PERIOD: PeriodKey = 'today'
 
@@ -43,6 +44,8 @@ export function CallHistoryPage() {
 
   const [calls, setCalls] = useState<Call[] | null>(null)
   const [error, setError] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<number>(25)
   const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
@@ -104,10 +107,11 @@ export function CallHistoryPage() {
   }
 
   const loading = calls === null && !error
+  const pg = paginate(shownCalls, page, pageSize)
 
   return (
-    <section className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <section className="flex h-full min-h-0 flex-col gap-4">
+      <header className="flex shrink-0 flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Historique des appels</h1>
           <p className="text-sm text-muted-foreground">
@@ -155,7 +159,7 @@ export function CallHistoryPage() {
       </header>
 
       {error && (
-        <div className="flex items-center justify-between rounded-md border border-border p-3 text-sm">
+        <div className="flex shrink-0 items-center justify-between rounded-md border border-border p-3 text-sm">
           <span className="text-muted-foreground">Chargement des appels impossible.</span>
           <Button variant="outline" size="sm" onClick={() => setReloadKey((k) => k + 1)}>
             Réessayer
@@ -163,7 +167,7 @@ export function CallHistoryPage() {
         </div>
       )}
 
-      <div className="rounded-md border border-border">
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -177,7 +181,7 @@ export function CallHistoryPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shownCalls.map((call) => {
+            {pg.items.map((call) => {
               const contact = contactById.get(call.contactId)
               const primaryEmail = contact ? emailsOf(contact.id)[0]?.address : null
               const accountName = accountById(call.accountId)?.name ?? contact?.accountName ?? '—'
@@ -206,7 +210,7 @@ export function CallHistoryPage() {
                   <TableCell className="hidden text-muted-foreground md:table-cell">{accountName}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="font-normal">
-                      {call.outcome}
+                      {outcomeLabel(call.outcome)}
                     </Badge>
                   </TableCell>
                   <TableCell className="hidden tabular-nums lg:table-cell">
@@ -232,6 +236,19 @@ export function CallHistoryPage() {
           </TableBody>
         </Table>
       </div>
+      <Pagination
+        page={pg.page}
+        pageCount={pg.pageCount}
+        from={pg.from}
+        to={pg.to}
+        total={pg.total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size)
+          setPage(1)
+        }}
+      />
     </section>
   )
 }

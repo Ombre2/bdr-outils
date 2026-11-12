@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
+import { Pagination, paginate } from '@/components/Pagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -17,6 +18,8 @@ export function MeetingsPage() {
   const [meetings, setMeetings] = useState<Call[] | null>(null)
   const [error, setError] = useState(false)
   const [showPast, setShowPast] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<number>(25)
   const [reloadKey, setReloadKey] = useState(0) // rechargé après l'enregistrement d'un compte rendu
   const [openRdv, setOpenRdv] = useState<Call | null>(null) // RDV dont le détail est ouvert
   const [now] = useState(() => Date.now()) // heure d'ouverture : sépare RDV à venir et passés
@@ -48,10 +51,11 @@ export function MeetingsPage() {
   }, [meetings, now])
 
   const visible = showPast ? past : upcoming
+  const pg = paginate(visible, page, pageSize)
 
   return (
-    <section className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <section className="flex h-full min-h-0 flex-col gap-4">
+      <header className="flex shrink-0 flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Rendez-vous</h1>
           <p className="text-sm text-muted-foreground">
@@ -63,7 +67,7 @@ export function MeetingsPage() {
         </Button>
       </header>
 
-      <div className="rounded-md border border-border">
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -77,7 +81,7 @@ export function MeetingsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visible.map((m) => {
+            {pg.items.map((m) => {
               const contact = contactById.get(m.contactId)
               const done = m.meetingAt!.toMillis() < now
               return (
@@ -152,6 +156,19 @@ export function MeetingsPage() {
           </TableBody>
         </Table>
       </div>
+      <Pagination
+        page={pg.page}
+        pageCount={pg.pageCount}
+        from={pg.from}
+        to={pg.to}
+        total={pg.total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size)
+          setPage(1)
+        }}
+      />
 
       {openRdv && (
         <RdvDialog

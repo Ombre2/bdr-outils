@@ -8,7 +8,7 @@ import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { formatDateTime } from '@/lib/time'
 import { formatPhone } from '@/lib/phone'
 import { listCallsForAccount, listCallsForContact } from '@/services/calls.repo'
-import type { Call, CallOutcome } from '@/types/models'
+import { outcomeLabel, type Call, type CallOutcome } from '@/types/models'
 
 interface Props {
   ownerId: string
@@ -63,7 +63,7 @@ export function CallTimeline({ ownerId, contactId, accountId, reloadKey, showCon
                 {formatDateTime(call.calledAt.toDate())}
               </time>
               <Badge variant={OUTCOME_VARIANT[call.outcome] ?? 'outline'} className="font-normal">
-                {call.outcome}
+                {outcomeLabel(call.outcome)}
               </Badge>
               {call.calledPhone && <span className="tabular-nums text-muted-foreground">{formatPhone(call.calledPhone)}</span>}
               {contact && (

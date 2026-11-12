@@ -10,7 +10,7 @@ import { computeCallMetrics, formatPercent } from '@/lib/metrics'
 import { PERIOD_KEYS, PERIOD_LABELS, formatRangeLabel, periodRange, type PeriodKey } from '@/lib/period'
 import { cn } from '@/lib/utils'
 import { listCallsBetween, listTeamCallsBetween } from '@/services/calls.repo'
-import { CALL_OUTCOMES, type Call } from '@/types/models'
+import { CALL_OUTCOMES, outcomeLabel, type Call } from '@/types/models'
 
 const DEFAULT_PERIOD: PeriodKey = 'week'
 
@@ -217,7 +217,7 @@ export function DashboardPage() {
                 const share = metrics.total > 0 ? count / metrics.total : null
                 return (
                   <tr key={o} className="border-b border-border last:border-0">
-                    <td className="px-3 py-2">{o}</td>
+                    <td className="px-3 py-2">{outcomeLabel(o)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{count}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatPercent(share)}</td>
                   </tr>

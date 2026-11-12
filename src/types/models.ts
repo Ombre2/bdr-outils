@@ -13,17 +13,25 @@ export const CALL_OUTCOMES = [
   'NPR',
   'Messagerie',
   'Mauvais numéro',
-  'Dead',
-  'Not good Contact',
   'Nurturing',
-  'R1',
-  'No Show',
   'Argumenté',
   'Rappel demandé',
   'RDV pris',
   'Refus',
+  'Not good Contact',
 ] as const
 export type CallOutcome = (typeof CALL_OUTCOMES)[number]
+
+// Libellés affichés. Les valeurs stockées (NPR, Not good Contact) ne changent pas, pour rester compatibles avec l'historique.
+const OUTCOME_LABELS: Partial<Record<CallOutcome, string>> = {
+  NPR: 'Pas de réponse',
+  'Not good Contact': 'Pas la bonne personne',
+}
+
+/** Libellé lisible d'un résultat d'appel. Un résultat ancien hors liste (ex. « Dead ») garde son nom. */
+export function outcomeLabel(outcome: string): string {
+  return OUTCOME_LABELS[outcome as CallOutcome] ?? outcome
+}
 
 // Autres actions que l'appel, journalisées sur un contact
 export const ACTIVITY_TYPES = ['Email envoyé', 'Message LinkedIn', 'Demande de connexion LinkedIn', 'Autre'] as const

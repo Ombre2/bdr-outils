@@ -3,6 +3,7 @@ import { PhoneCall } from 'lucide-react'
 import { Link } from 'react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Pagination, paginate, type PageSlice } from '@/components/Pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
@@ -27,6 +28,11 @@ export function TodayPage() {
   // Sélection pour retirer des contacts de la liste du jour (rappels d'aujourd'hui et de demain)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [removing, setRemoving] = useState(false)
+  // Pagination de chaque tableau, à l'intérieur de la page (la page elle-même ne défile pas)
+  const [pageSize, setPageSize] = useState<number>(25)
+  const [cadencePage, setCadencePage] = useState(1)
+  const [remindersPage, setRemindersPage] = useState(1)
+  const [tomorrowPage, setTomorrowPage] = useState(1)
 
   function toggleSelected(id: string) {
     setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
@@ -129,9 +135,33 @@ export function TodayPage() {
 
   const dateLabel = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
+  const cadencePg = paginate(cadenceDue, cadencePage, pageSize)
+  const remindersPg = paginate(reminders, remindersPage, pageSize)
+  const tomorrowPg = paginate(tomorrowReminders, tomorrowPage, pageSize)
+
+  function pager(pg: Pick<PageSlice<unknown>, 'page' | 'pageCount' | 'from' | 'to' | 'total'>, setPage: (p: number) => void) {
+    return (
+      <Pagination
+        page={pg.page}
+        pageCount={pg.pageCount}
+        from={pg.from}
+        to={pg.to}
+        total={pg.total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size)
+          setCadencePage(1)
+          setRemindersPage(1)
+          setTomorrowPage(1)
+        }}
+      />
+    )
+  }
+
   return (
-    <section className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <section className="flex h-full min-h-0 flex-col gap-4">
+      <header className="flex shrink-0 flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Ma Journée</h1>
           <p className="text-sm capitalize text-muted-foreground">{dateLabel}</p>
@@ -145,7 +175,7 @@ export function TodayPage() {
       </header>
 
       {!teamView && selectedIds.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-md border border-primary/40 bg-accent/40 px-3 py-2 text-sm">
+        <div className="shrink-0 flex flex-wrap items-center gap-3 rounded-md border border-primary/40 bg-accent/40 px-3 py-2 text-sm">
           <span className="font-medium">{selectedIds.length} sélectionné(s)</span>
           <span className="text-xs text-muted-foreground">Ils restent dans Contacts, seul leur rappel est retiré.</span>
           <div className="ml-auto flex flex-wrap gap-2">
@@ -160,9 +190,9 @@ export function TodayPage() {
       )}
 
       {cadenceDue.length > 0 && (
-        <div className="space-y-2">
-          <h2 className="text-sm font-medium">Étapes de cadence à faire ({cadenceDue.length})</h2>
-          <div className="rounded-md border border-border">
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
+          <h2 className="shrink-0 text-sm font-medium">Étapes de cadence à faire ({cadenceDue.length})</h2>
+          <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -173,7 +203,7 @@ export function TodayPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {cadenceDue.map(({ contact, next }) => {
+                {cadencePg.items.map(({ contact, next }) => {
                   const cadence = cadenceById(contact.cadenceId)!
                   const overdue = next.dueAt.getTime() < startOfToday().getTime()
                   return (
@@ -212,12 +242,13 @@ export function TodayPage() {
               </TableBody>
             </Table>
           </div>
+          {pager(cadencePg, setCadencePage)}
         </div>
       )}
 
-      <div className="space-y-2">
-        <h2 className="text-sm font-medium">Rappels</h2>
-      <div className="rounded-md border border-border">
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <h2 className="shrink-0 text-sm font-medium">Rappels</h2>
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -231,7 +262,7 @@ export function TodayPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {reminders.map((c) => {
+            {remindersPg.items.map((c) => {
               const overdue = c.nextReminderAt!.toMillis() < startOfToday().getTime()
               const phones = phonesOf(c.id)
               return (
@@ -311,12 +342,13 @@ export function TodayPage() {
           </TableBody>
         </Table>
       </div>
+      {pager(remindersPg, setRemindersPage)}
       </div>
 
       {tomorrowReminders.length > 0 && (
-        <div className="space-y-2">
-          <h2 className="text-sm font-medium">Demain ({tomorrowReminders.length})</h2>
-          <div className="rounded-md border border-border">
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
+          <h2 className="shrink-0 text-sm font-medium">Demain ({tomorrowReminders.length})</h2>
+          <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -328,7 +360,7 @@ export function TodayPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tomorrowReminders.map((c) => (
+                {tomorrowPg.items.map((c) => (
                   <TableRow key={c.id}>
                     {!teamView && (
                       <TableCell>
@@ -359,10 +391,11 @@ export function TodayPage() {
               </TableBody>
             </Table>
           </div>
+          {pager(tomorrowPg, setTomorrowPage)}
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground">
+      <p className="shrink-0 text-xs text-muted-foreground">
         Raccourcis : ↑ ↓ pour naviguer, Entrée pour logger, touches 1 à 6 pour le résultat, Ctrl+Entrée pour enregistrer.
       </p>
 

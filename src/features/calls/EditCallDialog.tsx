@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { FormSelect } from '@/components/FormSelect'
 import { formatPhone } from '@/lib/phone'
 import { CallInputError, updateCall } from '@/services/calls.repo'
-import { CALL_OUTCOMES, type Call, type CallOutcome, type Phone } from '@/types/models'
+import { CALL_OUTCOMES, outcomeLabel, type Call, type CallOutcome, type Phone } from '@/types/models'
 
 interface Props {
   open: boolean
@@ -92,7 +92,7 @@ export function EditCallDialog({ open, onOpenChange, call, phones, onSaved }: Pr
             <FormSelect
               value={outcome}
               onValueChange={(v) => setOutcome(v as CallOutcome)}
-              options={CALL_OUTCOMES.map((o) => ({ value: o, label: o }))}
+              options={CALL_OUTCOMES.map((o) => ({ value: o, label: outcomeLabel(o) }))}
               ariaLabel="Résultat de l’appel"
             />
           </div>

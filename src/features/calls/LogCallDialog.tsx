@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { FormSelect } from '@/components/FormSelect'
 import { CallInputError, logCall } from '@/services/calls.repo'
 import { formatPhone } from '@/lib/phone'
-import { CALL_OUTCOMES, CONTACT_STATUSES, STATUSES_REQUIRING_REASON, type CallOutcome, type Contact, type ContactStatus, type Phone } from '@/types/models'
+import { CALL_OUTCOMES, CONTACT_STATUSES, STATUSES_REQUIRING_REASON, outcomeLabel, type CallOutcome, type Contact, type ContactStatus, type Phone } from '@/types/models'
 import { deviceTimezone, zonedDateAt, zonedDateFromInput } from '@/lib/reminder'
 import { cn } from '@/lib/utils'
 
@@ -21,13 +21,14 @@ interface Props {
   onLogged: () => void
 }
 
-type ReminderChoice = 'none' | 'tomorrow' | '3d' | '7d' | 'date'
+type ReminderChoice = 'none' | 'tomorrow' | '3d' | '7d' | '1m' | 'date'
 
 const REMINDER_LABELS: Record<ReminderChoice, string> = {
   none: 'Aucun',
   tomorrow: 'Demain 9h',
   '3d': '+3 jours',
   '7d': '+1 semaine',
+  '1m': '+1 mois',
   date: 'Date…',
 }
 
@@ -42,6 +43,7 @@ const SUGGESTED_REMINDER: Partial<Record<CallOutcome, ReminderChoice>> = {
   NPR: 'tomorrow',
   Messagerie: 'tomorrow',
   'Rappel demandé': '3d',
+  Nurturing: '1m',
 }
 
 export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhone, onLogged }: Props) {
@@ -84,6 +86,8 @@ export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhon
         return zonedDateAt(3, 9, timezone)
       case '7d':
         return zonedDateAt(7, 9, timezone)
+      case '1m':
+        return zonedDateAt(30, 9, timezone)
       case 'date':
         return reminderDate ? zonedDateFromInput(reminderDate, timezone) : null
       default:
@@ -199,17 +203,17 @@ export function LogCallDialog({ open, onOpenChange, contact, phones, initialPhon
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Résultat</Label>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+            <div className="flex flex-wrap gap-1.5">
               {CALL_OUTCOMES.map((o, i) => (
                 <Button
                   key={o}
                   type="button"
                   variant={outcome === o ? 'default' : 'outline'}
-                  className={cn('justify-between font-normal', outcome !== o && 'text-foreground')}
+                  className={cn('justify-between gap-3 whitespace-nowrap font-normal', outcome !== o && 'text-foreground')}
                   onClick={() => chooseOutcome(o)}
                   aria-pressed={outcome === o}
                 >
-                  {o}
+                  {outcomeLabel(o)}
                   {i < 9 && <kbd className="font-mono text-[11px] opacity-60">{i + 1}</kbd>}
                 </Button>
               ))}
