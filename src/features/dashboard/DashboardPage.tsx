@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { FormSelect } from '@/components/FormSelect'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { CallTrendChart } from '@/features/dashboard/CallTrendChart'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { computeCallMetrics, formatPercent } from '@/lib/metrics'
 import { PERIOD_KEYS, PERIOD_LABELS, formatRangeLabel, periodRange, type PeriodKey } from '@/lib/period'
@@ -196,6 +197,8 @@ export function DashboardPage() {
         <Tile label="RDV pris" value={calls ? metrics.rdv : '—'} />
         <Tile label="Contacts qualifiés" value={qualified} hint="Passés à « Qualifié » sur la période" />
       </div>
+
+      {calls && range && <CallTrendChart calls={shownCalls} start={range.start} end={range.end} />}
 
       <div className="space-y-2">
         <h2 className="text-sm font-medium">Répartition des résultats</h2>
