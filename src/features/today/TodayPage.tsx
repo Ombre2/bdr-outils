@@ -33,8 +33,9 @@ export function TodayPage() {
   // Pagination de chaque tableau, à l'intérieur de la page (la page elle-même ne défile pas)
   const [pageSize, setPageSize] = useState<number>(25)
   const [cadencePage, setCadencePage] = useState(1)
-  const [remindersPage, setRemindersPage] = useState(1)
-  const [tomorrowPage, setTomorrowPage] = useState(1)
+  const [listPage, setListPage] = useState(1)
+  // Liste affichée : aujourd'hui ou demain (une seule à la fois)
+  const [day, setDay] = useState<'today' | 'tomorrow'>('today')
 
   function toggleSelected(id: string) {
     setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
@@ -195,8 +196,14 @@ export function TodayPage() {
   const dateLabel = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
   const cadencePg = paginate(cadenceDue, cadencePage, pageSize)
-  const remindersPg = paginate(reminders, remindersPage, pageSize)
-  const tomorrowPg = paginate(tomorrowReminders, tomorrowPage, pageSize)
+  const activeList = day === 'today' ? reminders : tomorrowReminders
+  const activePg = paginate(activeList, listPage, pageSize)
+
+  function switchDay(next: 'today' | 'tomorrow') {
+    setDay(next)
+    setListPage(1)
+    setSelectedIds([])
+  }
 
   function pager(pg: Pick<PageSlice<unknown>, 'page' | 'pageCount' | 'from' | 'to' | 'total'>, setPage: (p: number) => void) {
     return (
@@ -211,8 +218,7 @@ export function TodayPage() {
         onPageSizeChange={(size) => {
           setPageSize(size)
           setCadencePage(1)
-          setRemindersPage(1)
-          setTomorrowPage(1)
+          setListPage(1)
         }}
       />
     )
@@ -307,7 +313,15 @@ export function TodayPage() {
       )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-2">
-        <h2 className="shrink-0 text-sm font-medium">Rappels</h2>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <h2 className="mr-2 text-sm font-medium">Rappels</h2>
+          <Button size="sm" variant={day === 'today' ? 'default' : 'outline'} aria-pressed={day === 'today'} onClick={() => switchDay('today')}>
+            Aujourd’hui ({reminders.length})
+          </Button>
+          <Button size="sm" variant={day === 'tomorrow' ? 'default' : 'outline'} aria-pressed={day === 'tomorrow'} onClick={() => switchDay('tomorrow')}>
+            Demain ({tomorrowReminders.length})
+          </Button>
+        </div>
       <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border">
         <Table>
           <TableHeader>
@@ -323,7 +337,7 @@ export function TodayPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {remindersPg.items.map((c) => {
+            {activePg.items.map((c) => {
               const overdue = c.nextReminderAt!.toMillis() < startOfToday().getTime()
               const phones = phonesOf(c.id)
               return (
@@ -345,7 +359,7 @@ export function TodayPage() {
                   )}
                   <TableCell className="tabular-nums">
                     <span className={overdue ? 'text-destructive' : undefined}>
-                      {reminderLabel(c.nextReminderAt!.toDate(), c.timezone, overdue)}
+                      {reminderLabel(c.nextReminderAt!.toDate(), c.timezone, overdue || day === 'tomorrow')}
                     </span>
                     {overdue && <Badge variant="outline" className="ml-2 border-destructive/40 font-normal text-destructive">Retard</Badge>}
                   </TableCell>
@@ -395,71 +409,18 @@ export function TodayPage() {
                 </TableRow>
               )
             })}
-            {!loading && reminders.length === 0 && (
+            {!loading && activeList.length === 0 && (
               <TableRow>
                 <TableCell colSpan={teamView ? 7 : 8} className="py-10 text-center text-muted-foreground">
-                  Aucun rappel pour aujourd'hui. Bonne prospection.
+                  {day === 'today' ? 'Aucun rappel pour aujourd’hui. Bonne prospection.' : 'Aucun appel planifié pour demain.'}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      {pager(remindersPg, setRemindersPage)}
+      {pager(activePg, setListPage)}
       </div>
-
-      {tomorrowReminders.length > 0 && (
-        <div className="flex min-h-0 flex-1 flex-col gap-2">
-          <h2 className="shrink-0 text-sm font-medium">Demain ({tomorrowReminders.length})</h2>
-          <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  {!teamView && <TableHead className="w-10" />}
-                  <TableHead className="w-28">Heure</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Compte</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Dernier appel</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tomorrowPg.items.map((c) => (
-                  <TableRow key={c.id}>
-                    {!teamView && (
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedIds.includes(c.id)}
-                          onCheckedChange={() => toggleSelected(c.id)}
-                          aria-label={`Sélectionner ${c.firstName} ${c.lastName}`}
-                        />
-                      </TableCell>
-                    )}
-                    <TableCell className="tabular-nums">{reminderLabel(c.nextReminderAt!.toDate(), c.timezone, true)}</TableCell>
-                    <TableCell>
-                      <Link to={`/contacts/${c.id}`} state={{ from: '/today' }} className="font-medium hover:underline">
-                        {c.firstName} {c.lastName}
-                      </Link>
-                      {linkedinBadge(c)}
-                      <p className="text-xs text-muted-foreground">{c.title ?? ''}</p>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {accountById(c.accountId)?.name ?? c.accountName ?? '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-normal">
-                        {c.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{lastCallCell(c.id)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          {pager(tomorrowPg, setTomorrowPage)}
-        </div>
-      )}
 
       <p className="shrink-0 text-xs text-muted-foreground">
         Raccourcis : ↑ ↓ pour naviguer, Entrée pour logger, touches 1 à 6 pour le résultat, Ctrl+Entrée pour enregistrer.
