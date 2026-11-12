@@ -16,6 +16,7 @@ import { listCallsBetween, listCallsSince } from '@/services/calls.repo'
 import { completeCadenceStep, setContactReminders } from '@/services/contacts.repo'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
+import { safeLinkedinUrl } from '@/lib/text'
 import { outcomeLabel, type Call, type Contact } from '@/types/models'
 
 export function TodayPage() {
@@ -155,6 +156,24 @@ export function TodayPage() {
     }
   }
 
+  // Badge « in » vers le profil LinkedIn, même rendu que dans la liste des contacts
+  function linkedinBadge(contact: Contact) {
+    const url = safeLinkedinUrl(contact.linkedinUrl)
+    if (!url) return null
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Ouvrir le profil LinkedIn"
+        aria-label={`Profil LinkedIn de ${contact.firstName} ${contact.lastName}`}
+        className="ml-1.5 inline-flex size-4 shrink-0 items-center justify-center rounded-sm bg-[#0A66C2] align-middle text-[10px] font-bold leading-none text-white hover:opacity-80"
+      >
+        in
+      </a>
+    )
+  }
+
   // Dernier appel : date, résultat et description (notes), complète avec un survol pour le texte entier
   function lastCallCell(contactId: string) {
     const last = lastCallByContact.get(contactId)
@@ -257,6 +276,7 @@ export function TodayPage() {
                         <Link to={`/contacts/${contact.id}`} state={{ from: '/today' }} className="font-medium hover:underline">
                           {contact.firstName} {contact.lastName}
                         </Link>
+                        {linkedinBadge(contact)}
                         <p className="text-xs text-muted-foreground">
                           {cadence.name} · étape {next.index + 1}/{cadence.steps.length}
                         </p>
@@ -333,6 +353,7 @@ export function TodayPage() {
                     <Link to={`/contacts/${c.id}`} state={{ from: '/today' }} className="font-medium hover:underline">
                       {c.firstName} {c.lastName}
                     </Link>
+                    {linkedinBadge(c)}
                     <p className="text-xs text-muted-foreground">
                       {c.title ?? ''}
                       {c.timezone ? ` · ${localTimeLabel(c.timezone)}` : ''}
@@ -419,6 +440,7 @@ export function TodayPage() {
                       <Link to={`/contacts/${c.id}`} state={{ from: '/today' }} className="font-medium hover:underline">
                         {c.firstName} {c.lastName}
                       </Link>
+                      {linkedinBadge(c)}
                       <p className="text-xs text-muted-foreground">{c.title ?? ''}</p>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
