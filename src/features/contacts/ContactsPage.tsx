@@ -19,6 +19,10 @@ import { normalizeText, safeLinkedinUrl } from '@/lib/text'
 import { countryLabel } from '@/lib/geo'
 import { useListFilters } from '@/components/useListFilters'
 import { CONTACT_STATUSES, type Contact } from '@/types/models'
+import { Checkbox } from '@/components/ui/checkbox'
+import { endOfTomorrow, planCallSlots } from '@/lib/reminder'
+import { setContactReminders } from '@/services/contacts.repo'
+import { toast } from 'sonner'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -34,6 +38,7 @@ export function ContactsPage() {
   const { text, list, flag, update, href } = useListFilters()
   const accountSort = text('tri') === 'desc' ? 'desc' : 'asc'
   const hideUpcoming = flag('masquer') // masque les contacts avec un RDV encore à venir
+  const hidePlanned = flag('planifies') // masque les contacts déjà planifiés pour aujourd'hui ou demain (ou en retard)
   const filter = text('q')
   // Filtres à choix multiples : liste vide = pas de filtre
   const statuses = list('statut')
@@ -44,6 +49,7 @@ export function ContactsPage() {
   const owners = list('proprietaire')
   const setAccountSort = (v: 'asc' | 'desc') => update({ tri: v === 'desc' ? 'desc' : null })
   const setHideUpcoming = (v: boolean) => update({ masquer: v ? '1' : null })
+  const setHidePlanned = (v: boolean) => update({ planifies: v ? '1' : null })
   const setFilter = (v: string) => update({ q: v })
   const setStatuses = (v: string[]) => update({ statut: v })
   const setCountries = (v: string[]) => update({ pays: v })
@@ -51,6 +57,9 @@ export function ContactsPage() {
   const setIndustries = (v: string[]) => update({ industrie: v })
   const setOwners = (v: string[]) => update({ proprietaire: v })
   const [creating, setCreating] = useState(false)
+  // Sélection pour planifier une session d'appels : l'ordre de sélection = ordre d'appel
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [planning, setPlanning] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(50)
 
@@ -94,6 +103,7 @@ export function ContactsPage() {
         const key = accountKeyOf(c)
         if (key && accountsWithUpcomingRdv.has(key)) return false // un collègue du même compte a un RDV à venir
       }
+      if (hidePlanned && c.nextReminderAt && c.nextReminderAt.toMillis() <= endOfTomorrow(now).getTime()) return false // déjà dans Ma Journée
       if (statuses.length > 0 && !statuses.includes(c.status)) return false
       if (countries.length > 0 && !(c.country && countries.includes(c.country))) return false
       if (sources.length > 0 && !(c.source && sources.includes(c.source))) return false
@@ -109,7 +119,7 @@ export function ContactsPage() {
       )
       return (q !== '' && haystack.includes(q)) || (phoneMatchIds?.has(c.id) ?? false)
     })
-  }, [contacts, filter, statuses, countries, sources, industries, owners, phoneMatchIds, accountById, hideUpcoming, rdvByContact, now, accountsWithUpcomingRdv, accountKeyOf])
+  }, [contacts, filter, statuses, countries, sources, industries, owners, phoneMatchIds, accountById, hideUpcoming, hidePlanned, rdvByContact, now, accountsWithUpcomingRdv, accountKeyOf])
 
   // Tri par compte : les contacts d'un même compte se suivent. Sans compte : en bas de liste.
   const sortedRows = useMemo(() => {
@@ -147,10 +157,10 @@ export function ContactsPage() {
       ),
     [contacts, accountById],
   )
-  const filtersActive = Boolean(filter || statuses.length || countries.length || sources.length || industries.length || owners.length || hideUpcoming)
+  const filtersActive = Boolean(filter || statuses.length || countries.length || sources.length || industries.length || owners.length || hideUpcoming || hidePlanned)
 
   function resetFilters() {
-    update({ q: null, statut: null, pays: null, source: null, industrie: null, proprietaire: null, masquer: null })
+    update({ q: null, statut: null, pays: null, source: null, industrie: null, proprietaire: null, masquer: null, planifies: null })
     setPage(1)
   }
 
@@ -159,6 +169,30 @@ export function ContactsPage() {
   function stop(e: MouseEvent) {
     // Les liens d'appel/mailto: ne doivent pas ouvrir la fiche
     e.stopPropagation()
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
+  }
+
+  async function planSession(day: 'today' | 'tomorrow') {
+    const byId = new Map(contacts.map((c) => [c.id, c] as const))
+    const chosen = selectedIds.map((id) => byId.get(id)).filter((c): c is Contact => !!c)
+    if (chosen.length === 0) return
+    const slots = planCallSlots(chosen.length, day)
+    setPlanning(true)
+    try {
+      await setContactReminders(chosen.map((contact, i) => ({ contact, at: slots[i] })))
+      toast.success(
+        `${chosen.length} appel(s) planifié(s) ${day === 'today' ? 'aujourd’hui' : 'demain'}, dans l’ordre choisi.`,
+      )
+      setSelectedIds([])
+      await refresh()
+    } catch {
+      toast.error('Planification impossible. Réessayez.')
+    } finally {
+      setPlanning(false)
+    }
   }
 
   return (
@@ -254,6 +288,19 @@ export function ContactsPage() {
             {hideUpcoming ? 'Comptes avec RDV masqués' : 'Masquer les comptes avec RDV à venir'}
           </Button>
         )}
+        {!teamView && (
+          <Button
+            variant={hidePlanned ? 'default' : 'outline'}
+            size="sm"
+            aria-pressed={hidePlanned}
+            onClick={() => {
+              setHidePlanned(!hidePlanned)
+              setPage(1)
+            }}
+          >
+            {hidePlanned ? 'Contacts déjà planifiés masqués' : 'Masquer les contacts déjà planifiés'}
+          </Button>
+        )}
         {filtersActive && (
           <Button variant="ghost" size="sm" onClick={resetFilters}>
             Réinitialiser
@@ -261,10 +308,29 @@ export function ContactsPage() {
         )}
       </div>
 
+      {!teamView && selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-primary/40 bg-accent/40 px-3 py-2 text-sm">
+          <span className="font-medium">{selectedIds.length} sélectionné(s)</span>
+          <span className="text-xs text-muted-foreground">L’ordre de sélection sera l’ordre d’appel.</span>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => void planSession('today')} disabled={planning}>
+              {planning ? 'Planification…' : 'Planifier aujourd’hui'}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => void planSession('tomorrow')} disabled={planning}>
+              Planifier demain
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])} disabled={planning}>
+              Vider
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              {!teamView && <TableHead className="w-12">Ordre</TableHead>}
               <TableHead>Contact</TableHead>
               <TableHead className="hidden md:table-cell">
                 <button
@@ -290,6 +356,20 @@ export function ContactsPage() {
               const accountName = accountById(c.accountId)?.name ?? c.accountName
               return (
                 <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/contacts/${c.id}`, { state: { from: href } })}>
+                  {!teamView && (
+                    <TableCell className="w-12" onClick={stop}>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={selectedIds.includes(c.id)}
+                          onCheckedChange={() => toggleSelected(c.id)}
+                          aria-label={`Sélectionner ${c.firstName} ${c.lastName}`}
+                        />
+                        {selectedIds.includes(c.id) && (
+                          <span className="text-xs font-medium tabular-nums text-primary">{selectedIds.indexOf(c.id) + 1}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell className="max-w-[260px]">
                     <p className="flex items-center gap-1.5 font-medium">
                       <span>
@@ -384,7 +464,7 @@ export function ContactsPage() {
             })}
             {!loading && rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={teamView ? 8 : 7} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={teamView ? 8 : 9} className="py-8 text-center text-muted-foreground">
                   Aucun contact. Créez-en un ou importez vos fichiers (étape F).
                 </TableCell>
               </TableRow>

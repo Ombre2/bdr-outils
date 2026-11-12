@@ -8,11 +8,12 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { LogCallDialog } from '@/features/calls/LogCallDialog'
 import { callHref, formatPhone } from '@/lib/phone'
-import { endOfToday, startOfToday } from '@/lib/reminder'
+import { endOfToday, endOfTomorrow, startOfToday } from '@/lib/reminder'
 import { nextCadenceStep } from '@/lib/cadence'
 import { localTimeLabel } from '@/lib/time'
 import { listCallsSince } from '@/services/calls.repo'
-import { completeCadenceStep } from '@/services/contacts.repo'
+import { completeCadenceStep, setContactReminders } from '@/services/contacts.repo'
+import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import type { Contact } from '@/types/models'
 
@@ -23,6 +24,30 @@ export function TodayPage() {
   const [callsToday, setCallsToday] = useState<number | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [stepBusy, setStepBusy] = useState<string | null>(null)
+  // Sélection pour retirer des contacts de la liste du jour (rappels d'aujourd'hui et de demain)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [removing, setRemoving] = useState(false)
+
+  function toggleSelected(id: string) {
+    setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
+  }
+
+  async function removeFromList() {
+    const byId = new Map(contacts.map((c) => [c.id, c] as const))
+    const chosen = selectedIds.map((id) => byId.get(id)).filter((c): c is Contact => !!c)
+    if (chosen.length === 0) return
+    setRemoving(true)
+    try {
+      await setContactReminders(chosen.map((contact) => ({ contact, at: null })))
+      toast.success(`${chosen.length} contact(s) retiré(s) de la liste. Ils restent dans Contacts.`)
+      setSelectedIds([])
+      await refresh()
+    } catch {
+      toast.error('Impossible de retirer les contacts. Réessayez.')
+    } finally {
+      setRemoving(false)
+    }
+  }
 
   // Étapes de cadence à faire aujourd'hui ou en retard, triées par date
   const cadenceDue = useMemo(() => {
@@ -58,6 +83,15 @@ export function TodayPage() {
     }
   }, [contacts])
 
+  // Rappels planifiés pour demain, triés par heure
+  const tomorrowReminders = useMemo(() => {
+    const startMs = endOfToday().getTime()
+    const endMs = endOfTomorrow().getTime()
+    return contacts
+      .filter((c) => c.nextReminderAt && c.nextReminderAt.toMillis() > startMs && c.nextReminderAt.toMillis() <= endMs)
+      .sort((a, b) => a.nextReminderAt!.toMillis() - b.nextReminderAt!.toMillis())
+  }, [contacts])
+
   // Compteur d'appels du jour (chargé à l'ouverture et après chaque log)
   useEffect(() => {
     if (!user) return
@@ -77,6 +111,8 @@ export function TodayPage() {
 
   // Navigation clavier : ↑ ↓ entre les lignes, Entrée pour logger
   function onRowKeyDown(e: KeyboardEvent<HTMLTableRowElement>, contact: Contact) {
+    // Touche tapée sur la case à cocher : ce n'est pas une action sur la ligne
+    if (e.target !== e.currentTarget) return
     if (e.key === 'Enter') {
       e.preventDefault()
       setLogFor(contact)
@@ -103,9 +139,25 @@ export function TodayPage() {
         <div className="flex gap-6 text-sm">
           <Stat label="À rappeler" value={reminders.length} />
           <Stat label="En retard" value={overdueCount} warn={overdueCount > 0} />
+          <Stat label="Demain" value={tomorrowReminders.length} />
           <Stat label="Appels aujourd'hui" value={callsToday ?? '—'} />
         </div>
       </header>
+
+      {!teamView && selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-primary/40 bg-accent/40 px-3 py-2 text-sm">
+          <span className="font-medium">{selectedIds.length} sélectionné(s)</span>
+          <span className="text-xs text-muted-foreground">Ils restent dans Contacts, seul leur rappel est retiré.</span>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => void removeFromList()} disabled={removing}>
+              {removing ? 'Retrait…' : 'Retirer de la liste'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])} disabled={removing}>
+              Vider
+            </Button>
+          </div>
+        </div>
+      )}
 
       {cadenceDue.length > 0 && (
         <div className="space-y-2">
@@ -132,7 +184,7 @@ export function TodayPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Link to={`/contacts/${contact.id}`} className="font-medium hover:underline">
+                        <Link to={`/contacts/${contact.id}`} state={{ from: '/today' }} className="font-medium hover:underline">
                           {contact.firstName} {contact.lastName}
                         </Link>
                         <p className="text-xs text-muted-foreground">
@@ -169,6 +221,7 @@ export function TodayPage() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              {!teamView && <TableHead className="w-10" />}
               <TableHead className="w-28">Rappel</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Compte</TableHead>
@@ -189,6 +242,15 @@ export function TodayPage() {
                   onKeyDown={(e) => onRowKeyDown(e, c)}
                   className="focus-visible:bg-accent focus-visible:outline-none"
                 >
+                  {!teamView && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.includes(c.id)}
+                        onCheckedChange={() => toggleSelected(c.id)}
+                        aria-label={`Sélectionner ${c.firstName} ${c.lastName}`}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="tabular-nums">
                     <span className={overdue ? 'text-destructive' : undefined}>
                       {reminderLabel(c.nextReminderAt!.toDate(), c.timezone, overdue)}
@@ -196,7 +258,7 @@ export function TodayPage() {
                     {overdue && <Badge variant="outline" className="ml-2 border-destructive/40 font-normal text-destructive">Retard</Badge>}
                   </TableCell>
                   <TableCell>
-                    <Link to={`/contacts/${c.id}`} className="font-medium hover:underline">
+                    <Link to={`/contacts/${c.id}`} state={{ from: '/today' }} className="font-medium hover:underline">
                       {c.firstName} {c.lastName}
                     </Link>
                     <p className="text-xs text-muted-foreground">
@@ -241,7 +303,7 @@ export function TodayPage() {
             })}
             {!loading && reminders.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={teamView ? 6 : 7} className="py-10 text-center text-muted-foreground">
                   Aucun rappel pour aujourd'hui. Bonne prospection.
                 </TableCell>
               </TableRow>
@@ -250,6 +312,55 @@ export function TodayPage() {
         </Table>
       </div>
       </div>
+
+      {tomorrowReminders.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-medium">Demain ({tomorrowReminders.length})</h2>
+          <div className="rounded-md border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  {!teamView && <TableHead className="w-10" />}
+                  <TableHead className="w-28">Heure</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Compte</TableHead>
+                  <TableHead>Statut</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tomorrowReminders.map((c) => (
+                  <TableRow key={c.id}>
+                    {!teamView && (
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.includes(c.id)}
+                          onCheckedChange={() => toggleSelected(c.id)}
+                          aria-label={`Sélectionner ${c.firstName} ${c.lastName}`}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell className="tabular-nums">{reminderLabel(c.nextReminderAt!.toDate(), c.timezone, true)}</TableCell>
+                    <TableCell>
+                      <Link to={`/contacts/${c.id}`} state={{ from: '/today' }} className="font-medium hover:underline">
+                        {c.firstName} {c.lastName}
+                      </Link>
+                      <p className="text-xs text-muted-foreground">{c.title ?? ''}</p>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {accountById(c.accountId)?.name ?? c.accountName ?? '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal">
+                        {c.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground">
         Raccourcis : ↑ ↓ pour naviguer, Entrée pour logger, touches 1 à 6 pour le résultat, Ctrl+Entrée pour enregistrer.

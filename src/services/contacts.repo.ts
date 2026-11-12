@@ -4,6 +4,7 @@ import {
   doc,
   serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
   writeBatch,
   type DocumentReference,
@@ -319,6 +320,18 @@ export async function setPrimaryPhone(contactId: string, phones: Phone[], phoneI
     changes.map((p) =>
       updateDoc(doc(db, 'contacts', contactId, 'phones', p.id), {
         isPrimary: p.id === phoneId,
+        updatedAt: serverTimestamp(),
+      }),
+    ),
+  )
+}
+
+/** Fixe le prochain rappel de plusieurs contacts, chacun à son créneau (null = retire le rappel). Un document à la fois (pas de batch sur les sous-collections). */
+export async function setContactReminders(plan: { contact: Contact; at: Date | null }[]): Promise<void> {
+  await Promise.all(
+    plan.map(({ contact, at }) =>
+      updateDoc(doc(db, 'contacts', contact.id), {
+        nextReminderAt: at ? Timestamp.fromDate(at) : null,
         updatedAt: serverTimestamp(),
       }),
     ),

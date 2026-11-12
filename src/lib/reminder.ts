@@ -62,6 +62,29 @@ export function endOfToday(now: Date = new Date()): Date {
   return end
 }
 
+/** Fin de la journée de demain : sert à « Ma Journée » (rappels planifiés pour demain). */
+export function endOfTomorrow(now: Date = new Date()): Date {
+  const end = endOfToday(now)
+  end.setDate(end.getDate() + 1)
+  return end
+}
+
+/**
+ * Créneaux de rappel pour une liste d'appels, dans l'ordre : une minute d'écart entre deux appels.
+ * Aujourd'hui : à partir de maintenant. Demain : à partir de 9h. Sert à garder l'ordre choisi dans « Ma Journée ».
+ */
+export function planCallSlots(count: number, day: 'today' | 'tomorrow', now: Date = new Date()): Date[] {
+  const start = new Date(now)
+  if (day === 'today') {
+    start.setSeconds(0, 0)
+    start.setMinutes(start.getMinutes() + 1)
+  } else {
+    start.setDate(start.getDate() + 1)
+    start.setHours(9, 0, 0, 0)
+  }
+  return Array.from({ length: count }, (_, i) => new Date(start.getTime() + i * 60_000))
+}
+
 export function startOfToday(now: Date = new Date()): Date {
   const start = new Date(now)
   start.setHours(0, 0, 0, 0)

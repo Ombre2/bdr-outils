@@ -236,7 +236,7 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
     <section className="space-y-6">
       {!embedded && (
         <Link to={backTarget(location.state, '/contacts')} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-4" aria-hidden /> Contacts
+          <ArrowLeft className="size-4" aria-hidden /> {backTarget(location.state, '/contacts') === '/today' ? 'Ma Journée' : 'Contacts'}
         </Link>
       )}
 
