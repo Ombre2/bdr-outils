@@ -18,6 +18,7 @@ export const CALL_OUTCOMES = [
   'Rappel demandé',
   'RDV pris',
   'Refus',
+  'Erreur',
   'Not good Contact',
 ] as const
 export type CallOutcome = (typeof CALL_OUTCOMES)[number]

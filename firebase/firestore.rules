@@ -311,7 +311,7 @@ service cloud.firestore {
           'ownerId', 'contactId', 'accountId', 'calledAt', 'calledPhone',
           'outcome', 'notes', 'nextReminderAt', 'meetingAt', 'createdAt'])
         && request.resource.data.outcome in
-             ['NPR', 'Messagerie', 'Mauvais numéro', 'Dead', 'Not good Contact', 'Nurturing', 'R1', 'No Show', 'Argumenté', 'Rappel demandé', 'RDV pris', 'Refus']
+             ['NPR', 'Messagerie', 'Mauvais numéro', 'Dead', 'Not good Contact', 'Nurturing', 'R1', 'No Show', 'Argumenté', 'Rappel demandé', 'RDV pris', 'Refus', 'Erreur']
         && isOptionalE164(request.resource.data.calledPhone)
         && isOptionalString(request.resource.data.notes, 5000)
         && isOptionalTimestamp(request.resource.data.nextReminderAt)
@@ -331,7 +331,7 @@ service cloud.firestore {
           'outcome', 'notes', 'nextReminderAt', 'meetingAt', 'meetingHistory', 'createdAt', 'editedAt', 'compteRendu'])
         && isOptionalMeetingHistory(request.resource.data.get('meetingHistory', null))
         && request.resource.data.outcome in
-             ['NPR', 'Messagerie', 'Mauvais numéro', 'Dead', 'Not good Contact', 'Nurturing', 'R1', 'No Show', 'Argumenté', 'Rappel demandé', 'RDV pris', 'Refus']
+             ['NPR', 'Messagerie', 'Mauvais numéro', 'Dead', 'Not good Contact', 'Nurturing', 'R1', 'No Show', 'Argumenté', 'Rappel demandé', 'RDV pris', 'Refus', 'Erreur']
         && isOptionalE164(request.resource.data.calledPhone)
         && isOptionalString(request.resource.data.notes, 5000)
         && isOptionalString(request.resource.data.get('compteRendu', null), 20000)

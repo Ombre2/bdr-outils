@@ -3,8 +3,8 @@ import { CALL_OUTCOMES, type CallOutcome } from '@/types/models'
 /** Résultats où quelqu'un a réellement parlé au BDR. */
 export const CONNECTED_OUTCOMES: readonly CallOutcome[] = ['Argumenté', 'Rappel demandé', 'RDV pris']
 
-/** Résultats qui ne comptent pas comme essai (mauvais numéro). « Faux numéro » = ancien libellé, gardé pour l'historique. */
-export const NON_ATTEMPT_OUTCOMES: readonly string[] = ['Mauvais numéro', 'Faux numéro']
+/** Résultats qui ne comptent pas comme essai (mauvais numéro, erreur de l'outil). « Faux numéro » = ancien libellé, gardé pour l'historique. */
+export const NON_ATTEMPT_OUTCOMES: readonly string[] = ['Mauvais numéro', 'Faux numéro', 'Erreur']
 
 export interface CallMetrics {
   total: number // tous les appels de la période
