@@ -11,13 +11,14 @@ import { LogCallDialog } from '@/features/calls/LogCallDialog'
 import { callHref, formatPhone } from '@/lib/phone'
 import { endOfToday, endOfTomorrow, startOfToday } from '@/lib/reminder'
 import { nextCadenceStep } from '@/lib/cadence'
-import { formatDateTime, localTimeLabel } from '@/lib/time'
-import { listCallsBetween, listCallsSince } from '@/services/calls.repo'
+import { localTimeLabel } from '@/lib/time'
+import { listCallsSince } from '@/services/calls.repo'
+import { LastCallCell, useLastCalls } from '@/features/calls/useLastCalls'
 import { completeCadenceStep, setContactReminders } from '@/services/contacts.repo'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { safeLinkedinUrl } from '@/lib/text'
-import { outcomeLabel, type Call, type Contact } from '@/types/models'
+import type { Contact } from '@/types/models'
 
 export function TodayPage() {
   const { user } = useAuth()
@@ -25,11 +26,11 @@ export function TodayPage() {
   const [logFor, setLogFor] = useState<Contact | null>(null)
   const [callsToday, setCallsToday] = useState<number | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const lastCalls = useLastCalls(reloadKey) // dernier appel de chaque contact, rechargé après chaque log
   const [stepBusy, setStepBusy] = useState<string | null>(null)
   // Sélection pour retirer des contacts de la liste du jour (rappels d'aujourd'hui et de demain)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [removing, setRemoving] = useState(false)
-  const [lastCallByContact, setLastCallByContact] = useState<Map<string, Call>>(new Map())
   // Pagination de chaque tableau, à l'intérieur de la page (la page elle-même ne défile pas)
   const [pageSize, setPageSize] = useState<number>(25)
   const [cadencePage, setCadencePage] = useState(1)
@@ -101,27 +102,6 @@ export function TodayPage() {
       .sort((a, b) => a.nextReminderAt!.toMillis() - b.nextReminderAt!.toMillis())
   }, [contacts])
 
-  // Dernier appel de chaque contact, sur 90 jours (chargé à l'ouverture et après chaque log)
-  useEffect(() => {
-    if (!user) return
-    let cancelled = false
-    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
-    listCallsBetween(user.uid, since, new Date())
-      .then((calls) => {
-        if (cancelled) return
-        const map = new Map<string, Call>()
-        for (const call of calls) {
-          const previous = map.get(call.contactId)
-          if (!previous || call.calledAt.toMillis() > previous.calledAt.toMillis()) map.set(call.contactId, call)
-        }
-        setLastCallByContact(map)
-      })
-      .catch(() => !cancelled && setLastCallByContact(new Map()))
-    return () => {
-      cancelled = true
-    }
-  }, [user, reloadKey])
-
   // Compteur d'appels du jour (chargé à l'ouverture et après chaque log)
   useEffect(() => {
     if (!user) return
@@ -172,24 +152,6 @@ export function TodayPage() {
       >
         in
       </a>
-    )
-  }
-
-  // Dernier appel : date, résultat et description (notes), complète avec un survol pour le texte entier
-  function lastCallCell(contactId: string) {
-    const last = lastCallByContact.get(contactId)
-    if (!last) return <span className="text-xs text-muted-foreground">—</span>
-    return (
-      <div className="max-w-xs space-y-0.5">
-        <p className="text-xs tabular-nums text-muted-foreground">
-          {formatDateTime(last.calledAt.toDate())} · {outcomeLabel(last.outcome)}
-        </p>
-        {last.notes && (
-          <p className="line-clamp-2 text-sm" title={last.notes}>
-            {last.notes}
-          </p>
-        )}
-      </div>
     )
   }
 
@@ -381,7 +343,7 @@ export function TodayPage() {
                       {c.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{lastCallCell(c.id)}</TableCell>
+                  <TableCell><LastCallCell call={lastCalls.get(c.id)} contact={c} /></TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1.5">
                       {phones.map((p) => {

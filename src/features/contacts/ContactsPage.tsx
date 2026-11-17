@@ -12,7 +12,8 @@ import { ContactDialog } from '@/features/contacts/ContactDialog'
 import { LogCallDialog } from '@/features/calls/LogCallDialog'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { callHref, formatPhone, phoneDigits } from '@/lib/phone'
-import { formatDateTime, localTimeLabel } from '@/lib/time'
+import { formatDateTime } from '@/lib/time'
+import { LastCallCell, useLastCalls } from '@/features/calls/useLastCalls'
 import { rdvDateOf, useRdvCalls } from '@/features/calls/useRdvCalls'
 import { isNewContact } from '@/lib/new-contact'
 import { normalizeText, safeLinkedinUrl } from '@/lib/text'
@@ -24,8 +25,6 @@ import { endOfTomorrow, planCallSlots } from '@/lib/reminder'
 import { setContactReminders } from '@/services/contacts.repo'
 import { toast } from 'sonner'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 export function ContactsPage() {
   const { contacts, accountById, phones, phonesOf, loading, refresh, teamView, ownerEmail, owners: teamOwners } = useDirectory()
   const { user } = useAuth()
@@ -33,6 +32,7 @@ export function ContactsPage() {
   const [logFor, setLogFor] = useState<Contact | null>(null) // appel rapide, sans ouvrir la fiche
   const [rdvReloadKey, setRdvReloadKey] = useState(0)
   const rdvCalls = useRdvCalls(rdvReloadKey)
+  const lastCalls = useLastCalls(rdvReloadKey) // dernier appel de chaque contact, rechargé après chaque log
   const rdvByContact = useMemo(() => new Map([...rdvCalls].map(([id, call]) => [id, rdvDateOf(call)] as const)), [rdvCalls]) // dernier RDV pris par contact
   // Filtres dans l'URL : ils restent actifs au retour depuis une fiche
   const { text, list, flag, update, href } = useListFilters()
@@ -344,8 +344,7 @@ export function ContactsPage() {
               </TableHead>
               <TableHead className="hidden md:table-cell">Statut</TableHead>
               <TableHead>Téléphones</TableHead>
-              <TableHead className="hidden lg:table-cell">Email</TableHead>
-              <TableHead className="hidden lg:table-cell">Heure locale</TableHead>
+              <TableHead className="hidden lg:table-cell">Dernier appel</TableHead>
               {!teamView && <TableHead className="w-24 text-right">Appel</TableHead>}
               {teamView && <TableHead>Propriétaire</TableHead>}
             </TableRow>
@@ -354,8 +353,13 @@ export function ContactsPage() {
             {pg.items.map((c) => {
               const contactPhones = [...phonesOf(c.id)].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
               const accountName = accountById(c.accountId)?.name ?? c.accountName
+              const isNew = isNewContact(c.createdAt, now)
               return (
-                <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/contacts/${c.id}`, { state: { from: href } })}>
+                <TableRow
+                  key={c.id}
+                  // Nouveau contact : ligne légèrement teintée et liseré à gauche, repérable sans surcharger le nom
+                  className={`cursor-pointer ${isNew ? 'bg-primary/5 shadow-[inset_3px_0_0_var(--color-primary)]' : ''}`}
+                  onClick={() => navigate(`/contacts/${c.id}`, { state: { from: href } })}>
                   {!teamView && (
                     <TableCell className="w-12" onClick={stop}>
                       <div className="flex items-center gap-2">
@@ -370,12 +374,15 @@ export function ContactsPage() {
                       </div>
                     </TableCell>
                   )}
-                  <TableCell className="max-w-[260px]">
+                  <TableCell
+                    className="max-w-[260px] pr-6"
+                    // Survol : nom complet et poste, utiles quand le texte est coupé
+                    title={[`${c.firstName} ${c.lastName}`, c.title].filter(Boolean).join('\n')}
+                  >
                     <p className="flex items-center gap-1.5 font-medium">
-                      <span>
+                      <span className="truncate">
                         {c.firstName} {c.lastName}
                       </span>
-                      {isNewContact(c.createdAt, now) && <Badge className="font-normal">Nouveau</Badge>}
                       {safeLinkedinUrl(c.linkedinUrl) && (
                         <a
                           href={safeLinkedinUrl(c.linkedinUrl)!}
@@ -390,7 +397,16 @@ export function ContactsPage() {
                         </a>
                       )}
                     </p>
-                    {c.title && <p className="truncate text-xs text-muted-foreground">{c.title}</p>}
+                    {(isNew || c.title) && (
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {isNew && (
+                          <span className="shrink-0 rounded-sm bg-primary px-1 py-px text-[10px] font-semibold uppercase leading-tight tracking-wide text-primary-foreground">
+                            Nouveau
+                          </span>
+                        )}
+                        {c.title && <span className="truncate">{c.title}</span>}
+                      </p>
+                    )}
                     {accountName && <p className="truncate text-xs text-muted-foreground md:hidden">{accountName}</p>}
                     {rdvByContact.has(c.id) && (
                       <Badge className="mt-1 font-normal" title="Un RDV a déjà été pris avec ce contact">
@@ -433,16 +449,7 @@ export function ContactsPage() {
                     )}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
-                    {c.email && EMAIL_RE.test(c.email) ? (
-                      <a href={`mailto:${c.email}`} onClick={stop} className="underline-offset-2 hover:underline">
-                        {c.email}
-                      </a>
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden tabular-nums text-muted-foreground lg:table-cell">
-                    {localTimeLabel(c.timezone, now) ?? '—'}
+                    <LastCallCell call={lastCalls.get(c.id)} contact={c} />
                   </TableCell>
                   {!teamView && (
                     <TableCell className="text-right">
@@ -464,7 +471,7 @@ export function ContactsPage() {
             })}
             {!loading && rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={teamView ? 8 : 9} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={teamView ? 6 : 7} className="py-8 text-center text-muted-foreground">
                   Aucun contact. Créez-en un ou importez vos fichiers (étape F).
                 </TableCell>
               </TableRow>
