@@ -13,7 +13,7 @@ import { countryLabel } from '@/lib/geo'
 import { normalizeText } from '@/lib/text'
 import { useListFilters } from '@/components/useListFilters'
 import { RdvDialog } from '@/features/calls/RdvDialog'
-import { rdvDateOf, useRdvCalls } from '@/features/calls/useRdvCalls'
+import { lastMeetingOf, useRdvCalls } from '@/features/calls/useRdvCalls'
 import { formatDateTime } from '@/lib/time'
 import type { Call } from '@/types/models'
 
@@ -74,7 +74,7 @@ export function AccountsPage() {
       if (!c.accountId || !call) continue
       grouped.set(c.accountId, [
         ...(grouped.get(c.accountId) ?? []),
-        { at: rdvDateOf(call), call, contactName: `${c.firstName} ${c.lastName}` },
+        { at: lastMeetingOf(call).at, call, contactName: `${c.firstName} ${c.lastName}` },
       ])
     }
     const picked = new Map<string, RdvItem>()
@@ -142,7 +142,7 @@ export function AccountsPage() {
             setOpenRdv(rdv)
           }}
         >
-          {rdv.call.compteRendu ? 'Voir le CR' : done ? 'Faire le CR' : 'Préparer le CR'}
+          {lastMeetingOf(rdv.call).compteRendu ? 'Voir le CR' : done ? 'Faire le CR' : 'Préparer le CR'}
         </Button>
       </span>
     )

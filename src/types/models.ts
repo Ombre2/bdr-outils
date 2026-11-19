@@ -102,8 +102,17 @@ export interface Call {
   meetingAt?: Timestamp | null // date et heure du RDV, obligatoire si résultat « RDV pris »
   meetingHistory?: MeetingChange[] // anciennes dates du RDV, à chaque report
   compteRendu?: string | null // compte rendu rédigé après le RDV
+  followUps?: FollowUpMeeting[] // RDV de suivi, ajoutés dans le même RDV sans nouvel appel
   createdAt: Timestamp
   editedAt?: Timestamp | null // dernière correction
+}
+
+/** RDV de suivi d'un premier RDV : sa date et son propre compte rendu. */
+export interface FollowUpMeeting {
+  meetingAt: Timestamp
+  description?: string | null // courte description (objet du RDV de suivi)
+  compteRendu: string | null
+  createdAt: Timestamp
 }
 
 /** Trace d'un report de RDV : l'ancienne date, et le moment où le changement a été fait. */

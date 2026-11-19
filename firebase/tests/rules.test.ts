@@ -348,6 +348,15 @@ describe('Appels (journal)', () => {
     await assertFails(updateDoc(doc(db, 'calls', 'call13'), { compteRendu: 'x'.repeat(20001), editedAt: serverTimestamp() }))
   })
 
+  it('ajoute des RDV de suivi dans le même RDV, 20 au maximum', async () => {
+    const db = ctxFor(BDR_A)
+    const followUp = { meetingAt: Timestamp.fromDate(new Date(Date.now() + 86400000)), description: 'Démo avec le DSI', compteRendu: null, createdAt: Timestamp.now() }
+    await assertSucceeds(setDoc(doc(db, 'calls', 'call15'), { ...validCall(BDR_A.uid), outcome: 'RDV pris', meetingAt: Timestamp.now() }))
+    await assertSucceeds(updateDoc(doc(db, 'calls', 'call15'), { followUps: [followUp], editedAt: serverTimestamp() }))
+    await assertFails(updateDoc(doc(db, 'calls', 'call15'), { followUps: Array(21).fill(followUp), editedAt: serverTimestamp() }))
+    await assertFails(updateDoc(doc(db, 'calls', 'call15'), { followUps: 'demain', editedAt: serverTimestamp() }))
+  })
+
   it('un autre BDR ne peut pas corriger un appel', async () => {
     await assertSucceeds(setDoc(doc(ctxFor(BDR_A), 'calls', 'call10'), validCall(BDR_A.uid)))
     await assertFails(updateDoc(doc(ctxFor(BDR_B), 'calls', 'call10'), { notes: 'piraté', editedAt: serverTimestamp() }))

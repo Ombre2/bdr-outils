@@ -90,6 +90,20 @@ export function CallTimeline({ ownerId, contactId, accountId, reloadKey, showCon
                 RDV : {formatDateTime(call.meetingAt.toDate())}
               </p>
             )}
+            {call.followUps?.map((f, i) => (
+              <div key={f.createdAt.toMillis()} className="mt-2">
+                <p className="text-xs font-medium">
+                  RDV de suivi n°&nbsp;{i + 2} : {formatDateTime(f.meetingAt.toDate())}
+                  {f.description && <span className="font-normal text-muted-foreground"> · {f.description}</span>}
+                </p>
+                {f.compteRendu && (
+                  <div className="mt-1 rounded-md bg-muted/50 px-3 py-2">
+                    <p className="text-xs font-medium text-muted-foreground">Compte rendu du RDV n°&nbsp;{i + 2}</p>
+                    <RichTextView html={f.compteRendu} className="mt-1" />
+                  </div>
+                )}
+              </div>
+            ))}
             {call.nextReminderAt && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Rappel prévu : {formatDateTime(call.nextReminderAt.toDate())}

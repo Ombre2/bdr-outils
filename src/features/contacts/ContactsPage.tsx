@@ -14,7 +14,7 @@ import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { callHref, formatPhone, phoneDigits } from '@/lib/phone'
 import { formatDateTime } from '@/lib/time'
 import { LastCallCell, useLastCalls } from '@/features/calls/useLastCalls'
-import { rdvDateOf, useRdvCalls } from '@/features/calls/useRdvCalls'
+import { lastMeetingOf, useRdvCalls } from '@/features/calls/useRdvCalls'
 import { isNewContact } from '@/lib/new-contact'
 import { normalizeText, safeLinkedinUrl } from '@/lib/text'
 import { countryLabel } from '@/lib/geo'
@@ -33,7 +33,7 @@ export function ContactsPage() {
   const [rdvReloadKey, setRdvReloadKey] = useState(0)
   const rdvCalls = useRdvCalls(rdvReloadKey)
   const lastCalls = useLastCalls(rdvReloadKey) // dernier appel de chaque contact, rechargé après chaque log
-  const rdvByContact = useMemo(() => new Map([...rdvCalls].map(([id, call]) => [id, rdvDateOf(call)] as const)), [rdvCalls]) // dernier RDV pris par contact
+  const rdvByContact = useMemo(() => new Map([...rdvCalls].map(([id, call]) => [id, lastMeetingOf(call).at] as const)), [rdvCalls]) // dernier RDV pris par contact
   // Filtres dans l'URL : ils restent actifs au retour depuis une fiche
   const { text, list, flag, update, href } = useListFilters()
   const accountSort = text('tri') === 'desc' ? 'desc' : 'asc'

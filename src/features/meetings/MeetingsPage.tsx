@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { RdvDialog } from '@/features/calls/RdvDialog'
+import { meetingsOf } from '@/features/calls/useRdvCalls'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { formatDateTime } from '@/lib/time'
 import { listMeetingsForOwner } from '@/services/calls.repo'
@@ -42,11 +43,13 @@ export function MeetingsPage() {
     return contact ? `${contact.firstName} ${contact.lastName}` : 'Contact'
   }
 
+  // Une ligne par RDV : le premier RDV et chacun de ses RDV de suivi
   const { upcoming, past } = useMemo(() => {
-    const sorted = [...(meetings ?? [])].sort((a, b) => a.meetingAt!.toMillis() - b.meetingAt!.toMillis())
+    const rows = (meetings ?? []).flatMap((call) => meetingsOf(call).map((meeting) => ({ call, meeting })))
+    const sorted = rows.sort((a, b) => a.meeting.at.getTime() - b.meeting.at.getTime())
     return {
-      upcoming: sorted.filter((m) => m.meetingAt!.toMillis() >= now),
-      past: sorted.filter((m) => m.meetingAt!.toMillis() < now).reverse(), // les plus récents d'abord
+      upcoming: sorted.filter((r) => r.meeting.at.getTime() >= now),
+      past: sorted.filter((r) => r.meeting.at.getTime() < now).reverse(), // les plus récents d'abord
     }
   }, [meetings, now])
 
@@ -81,20 +84,25 @@ export function MeetingsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pg.items.map((m) => {
+            {pg.items.map(({ call: m, meeting }) => {
               const contact = contactById.get(m.contactId)
-              const done = m.meetingAt!.toMillis() < now
+              const done = meeting.at.getTime() < now
               return (
-                <TableRow key={m.id}>
+                <TableRow key={`${m.id}-${meeting.number}`}>
                   <TableCell className="font-medium tabular-nums">
                     <button
                       type="button"
                       className="cursor-pointer text-left hover:underline"
                       onClick={() => setOpenRdv(m)}
                     >
-                      {formatDateTime(m.meetingAt!.toDate())}
+                      {formatDateTime(meeting.at)}
                     </button>
-                    {m.meetingHistory && m.meetingHistory.length > 0 && (
+                    {meeting.number > 1 && (
+                      <Badge variant="outline" className="ml-2 border-sky-400 font-normal text-sky-700 dark:text-sky-300">
+                        Suivi n°&nbsp;{meeting.number}
+                      </Badge>
+                    )}
+                    {meeting.number === 1 && m.meetingHistory && m.meetingHistory.length > 0 && (
                       <Badge variant="outline" className="ml-2 border-amber-400 font-normal text-amber-700 dark:text-amber-300">
                         Reporté
                       </Badge>
@@ -124,7 +132,9 @@ export function MeetingsPage() {
                   </TableCell>
                   <TableCell className="hidden tabular-nums text-muted-foreground lg:table-cell">{formatDateTime(m.calledAt.toDate())}</TableCell>
                   <TableCell className="hidden max-w-xs md:table-cell">
-                    <p className="line-clamp-2 whitespace-pre-line text-sm text-muted-foreground">{m.notes ?? ''}</p>
+                    <p className="line-clamp-2 whitespace-pre-line text-sm text-muted-foreground">
+                      {meeting.number > 1 ? (meeting.description ?? '') : (m.notes ?? '')}
+                    </p>
                   </TableCell>
                   <TableCell>
                     <Button
@@ -134,7 +144,7 @@ export function MeetingsPage() {
                       className="h-7 px-2 text-xs"
                       onClick={() => setOpenRdv(m)}
                     >
-                      {m.compteRendu ? 'Voir le CR' : done ? 'Faire le CR' : 'Préparer le CR'}
+                      {meeting.compteRendu ? 'Voir le CR' : done ? 'Faire le CR' : 'Préparer le CR'}
                     </Button>
                   </TableCell>
                 </TableRow>

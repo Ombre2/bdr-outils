@@ -15,7 +15,15 @@ import { cleanText } from '@/lib/text'
 import { richTextLength, sanitizeRichText } from '@/lib/rich-text'
 import { db } from '@/services/firebase'
 import { addStatusChangeToBatch, checkStatusReason } from '@/services/status-history.repo'
-import { CALL_OUTCOMES, CONTACT_STATUSES, type Call, type CallOutcome, type Contact, type ContactStatus } from '@/types/models'
+import {
+  CALL_OUTCOMES,
+  CONTACT_STATUSES,
+  type Call,
+  type CallOutcome,
+  type Contact,
+  type ContactStatus,
+  type FollowUpMeeting,
+} from '@/types/models'
 
 export interface CallInput {
   outcome: CallOutcome
@@ -111,12 +119,58 @@ export async function rescheduleMeeting(callId: string, meetingAt: Date, previou
   })
 }
 
-/** Compte rendu d'un RDV, en texte riche (vide = compte rendu effacé). */
-export async function saveCompteRendu(callId: string, html: string): Promise<void> {
+/** Compte rendu en texte riche nettoyé (vide = null). */
+function cleanCompteRendu(html: string): string | null {
   const compteRendu = sanitizeRichText(html)
-  if (richTextLength(compteRendu) > 5000) throw new CallInputError('Le compte rendu ne peut pas dépasser 5000 caractères.')
+  if (richTextLength(compteRendu) > 5000) throw new CallInputError('Un compte rendu ne peut pas dépasser 5000 caractères.')
+  return richTextLength(compteRendu) > 0 ? compteRendu : null
+}
+
+export const MAX_FOLLOW_UPS = 20
+export const FOLLOW_UP_DESCRIPTION_MAX = 200
+
+/** Ajoute un RDV de suivi dans le même RDV (pas de nouvel appel). Renvoie le RDV ajouté. */
+export async function addFollowUpMeeting(
+  callId: string,
+  meetingAt: Date,
+  description: string,
+  currentCount: number,
+): Promise<FollowUpMeeting> {
+  if (Number.isNaN(meetingAt.getTime())) throw new CallInputError('Date du RDV de suivi invalide.')
+  if (currentCount >= MAX_FOLLOW_UPS) throw new CallInputError(`${MAX_FOLLOW_UPS} RDV de suivi au maximum.`)
+  const followUp: FollowUpMeeting = {
+    meetingAt: Timestamp.fromDate(meetingAt),
+    description: cleanText(description, FOLLOW_UP_DESCRIPTION_MAX),
+    compteRendu: null,
+    // Timestamp.now() car serverTimestamp() n'est pas accepté dans un tableau
+    createdAt: Timestamp.now(),
+  }
+  await updateDoc(doc(db, 'calls', callId), { followUps: arrayUnion(followUp), editedAt: serverTimestamp() })
+  return followUp
+}
+
+export interface FollowUpInput {
+  meetingAt: Date
+  description: string
+  compteRendu: string
+  createdAt: Timestamp
+}
+
+/** Enregistre les comptes rendus du RDV et de ses RDV de suivi (dates des suivis comprises). */
+export async function saveRdvDetails(callId: string, compteRendu: string, followUps: FollowUpInput[]): Promise<void> {
+  if (followUps.some((f) => Number.isNaN(f.meetingAt.getTime()))) throw new CallInputError('Date du RDV de suivi invalide.')
   await updateDoc(doc(db, 'calls', callId), {
-    compteRendu: richTextLength(compteRendu) > 0 ? compteRendu : null,
+    compteRendu: cleanCompteRendu(compteRendu),
+    ...(followUps.length > 0
+      ? {
+          followUps: followUps.map((f) => ({
+            meetingAt: Timestamp.fromDate(f.meetingAt),
+            description: cleanText(f.description, FOLLOW_UP_DESCRIPTION_MAX),
+            compteRendu: cleanCompteRendu(f.compteRendu),
+            createdAt: f.createdAt,
+          })),
+        }
+      : {}),
     editedAt: serverTimestamp(),
   })
 }
