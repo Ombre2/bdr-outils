@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import Papa from 'papaparse'
 import { saveAs } from 'file-saver'
 import { toast } from 'sonner'
@@ -23,13 +24,14 @@ import {
   type PlannedRow,
   type RowStatus,
 } from '@/lib/csv-import'
-import { accountsCsv, callsCsv, contactsCsv, importTemplateCsv } from '@/lib/csv-export'
+import { accountsCsv, callsCsv, contactsCsv, groupCallsByContact, importTemplateCsv } from '@/lib/csv-export'
 import { COUNTRIES } from '@/lib/geo'
 import { normalizeText } from '@/lib/text'
 import { PERIOD_KEYS, PERIOD_LABELS, periodRange, type PeriodKey } from '@/lib/period'
 import { runImport } from '@/services/import.service'
 import { listCallsBetween } from '@/services/calls.repo'
 import { cn } from '@/lib/utils'
+import { useCsvDownload } from '@/components/useCsvDownload'
 
 type Tab = 'import' | 'export'
 
@@ -517,43 +519,41 @@ type Dataset = 'contacts' | 'accounts' | 'calls'
 
 function ExportPanel() {
   const { user } = useAuth()
-  const { contacts, accounts, phonesOf, emailsOf, accountById } = useDirectory()
+  const { contacts, accounts, phonesOf, emailsOf, accountById, cadenceById } = useDirectory()
   const [dataset, setDataset] = useState<Dataset>('contacts')
   const [period, setPeriod] = useState<PeriodKey>('month')
-  const [busy, setBusy] = useState(false)
+  const { busy, download: save } = useCsvDownload()
 
-  async function download() {
+  function download() {
     if (!user) return
-    setBusy(true)
-    try {
-      const stamp = new Date().toISOString().slice(0, 10)
-      let csv: string
-      let name: string
-
+    void save(async () => {
       if (dataset === 'contacts') {
-        csv = contactsCsv(contacts, phonesOf, (id) => accountById(id ?? null)?.name, emailsOf)
-        name = 'contacts'
-      } else if (dataset === 'accounts') {
+        const callsByContact = groupCallsByContact(await listCallsBetween(user.uid, new Date(0), new Date()))
+        return {
+          csv: contactsCsv(contacts, {
+            phonesOf,
+            emailsOf,
+            accountById,
+            cadenceName: (id) => cadenceById(id)?.name,
+            callsOf: (id) => callsByContact.get(id) ?? [],
+          }),
+          name: 'contacts',
+        }
+      }
+      if (dataset === 'accounts') {
         const counts = new Map<string, number>()
         contacts.forEach((c) => c.accountId && counts.set(c.accountId, (counts.get(c.accountId) ?? 0) + 1))
-        csv = accountsCsv(accounts, (id) => counts.get(id) ?? 0)
-        name = 'comptes'
-      } else {
-        const range = periodRange(period)
-        if (!range) throw new Error('Période invalide')
-        const calls = await listCallsBetween(user.uid, range.start, range.end)
-        const byId = new Map(contacts.map((c) => [c.id, `${c.firstName} ${c.lastName}`]))
-        csv = callsCsv(calls, (id) => byId.get(id) ?? '', (id) => accountById(id ?? null)?.name)
-        name = `appels-${PERIOD_LABELS[period].toLowerCase().replace(/\s+/g, '-')}`
+        return { csv: accountsCsv(accounts, { contactCount: (id) => counts.get(id) ?? 0 }), name: 'comptes' }
       }
-
-      saveAs(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${name}-${stamp}.csv`)
-      toast.success('Export téléchargé.')
-    } catch {
-      toast.error('Export impossible. Réessayez.')
-    } finally {
-      setBusy(false)
-    }
+      const range = periodRange(period)
+      if (!range) throw new Error('Période invalide')
+      const calls = await listCallsBetween(user.uid, range.start, range.end)
+      const byId = new Map(contacts.map((c) => [c.id, `${c.firstName} ${c.lastName}`]))
+      return {
+        csv: callsCsv(calls, (id) => byId.get(id) ?? '', (id) => accountById(id ?? null)?.name),
+        name: `appels-${PERIOD_LABELS[period].toLowerCase().replace(/\s+/g, '-')}`,
+      }
+    })
   }
 
   return (
@@ -590,7 +590,8 @@ function ExportPanel() {
         avec séparateur « ; » (ouverture directe dans Excel). Les cellules commençant par =, +, - ou @ sont neutralisées.
       </p>
 
-      <Button onClick={() => void download()} disabled={busy}>
+      <Button onClick={download} disabled={busy}>
+        {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
         Télécharger le CSV
       </Button>
     </div>

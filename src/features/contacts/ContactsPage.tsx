@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
-import { PhoneCall, Plus } from 'lucide-react'
+import { Download, Loader2, PhoneCall, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,9 +25,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { endOfTomorrow, planCallSlots } from '@/lib/reminder'
 import { setContactReminders } from '@/services/contacts.repo'
 import { toast } from 'sonner'
+import { contactsCsv, groupCallsByContact } from '@/lib/csv-export'
+import { listCallsBetween, listTeamCallsBetween } from '@/services/calls.repo'
+import { useCsvDownload } from '@/components/useCsvDownload'
 
 export function ContactsPage() {
-  const { contacts, accountById, phones, phonesOf, loading, refresh, teamView, ownerEmail, owners: teamOwners } = useDirectory()
+  const { contacts, accountById, phones, phonesOf, emailsOf, cadenceById, loading, refresh, teamView, ownerEmail, owners: teamOwners } = useDirectory()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [logFor, setLogFor] = useState<Contact | null>(null) // appel rapide, sans ouvrir la fiche
@@ -168,6 +171,32 @@ export function ContactsPage() {
 
   const pg = paginate(sortedRows, page, pageSize)
 
+  // Export CSV de toute la liste filtrée et triée (pas seulement la page affichée)
+  const { busy: exporting, download } = useCsvDownload()
+  function exportCsv() {
+    void download(async () => {
+      // Tous les appels (sans limite de date) : historique et nombre d'appels par contact
+      const calls = teamView
+        ? await listTeamCallsBetween(new Date(0), new Date())
+        : user
+          ? await listCallsBetween(user.uid, new Date(0), new Date())
+          : []
+      const callsByContact = groupCallsByContact(calls)
+      return {
+        csv: contactsCsv(sortedRows, {
+          phonesOf,
+          emailsOf,
+          accountById,
+          cadenceName: (id) => cadenceById(id)?.name,
+          ownerEmail: teamView ? ownerEmail : undefined,
+          callsOf: (id) => callsByContact.get(id) ?? [],
+          lastRdv: (id) => rdvByContact.get(id),
+        }),
+        name: filtersActive ? 'contacts-filtres' : 'contacts',
+      }
+    })
+  }
+
   function stop(e: MouseEvent) {
     // Les liens d'appel/mailto: ne doivent pas ouvrir la fiche
     e.stopPropagation()
@@ -206,12 +235,23 @@ export function ContactsPage() {
             {rows.length} sur {contacts.length} contact(s)
           </p>
         </div>
-        {!teamView && (
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="size-4" aria-hidden />
-            Nouveau contact
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={exportCsv}
+            disabled={exporting || sortedRows.length === 0}
+            title="Exporter en CSV les contacts de la liste filtrée"
+          >
+            {exporting ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Download className="size-4" aria-hidden />}
+            Exporter ({sortedRows.length})
           </Button>
-        )}
+          {!teamView && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus className="size-4" aria-hidden />
+              Nouveau contact
+            </Button>
+          )}
+        </div>
       </header>
 
       <div className="flex flex-wrap gap-2">

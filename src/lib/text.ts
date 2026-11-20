@@ -18,10 +18,12 @@ export function cleanText(value: string | undefined | null, max: number): string
 }
 
 /** Champ CSV / export : neutralise l'injection de formules (=, +, -, @, tab, CR). */
-// Neutralise uniquement les débuts de formules : =, @, tabulation, retour chariot,
-// et + ou - suivi d'une lettre. Un numéro « +261… » n'est pas une formule : il reste intact.
+// Neutralise les débuts de formules : =, @, tabulation, retour à la ligne, et + ou -
+// (Excel lit « - Ils… » comme une formule). Un numéro « +261 34… » ou « -5 » reste intact.
 export function neutralizeFormula(value: string): string {
-  return /^[=@\t\r]/.test(value) || /^[+\-][A-Za-z]/.test(value) ? `'${value}` : value
+  if (/^[=@\t\r\n]/.test(value)) return `'${value}`
+  if (/^[+-]/.test(value) && !/^[+-][\d\s().-]*$/.test(value)) return `'${value}`
+  return value
 }
 
 /** Profil LinkedIn : accepté seulement vers linkedin.com, en https. Renvoie l'URL normalisée ou null. */

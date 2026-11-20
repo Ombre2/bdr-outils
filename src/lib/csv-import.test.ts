@@ -306,6 +306,11 @@ describe('injection de formules', () => {
     expect(neutralizeFormula('+33 6')).toBe('+33 6') // numéro de téléphone : pas une formule
     expect(neutralizeFormula('+SUM(1)')).toBe(`'+SUM(1)`)
     expect(neutralizeFormula('Awa')).toBe('Awa')
+    expect(neutralizeFormula('- Ils ont déjà un lien')).toBe(`'- Ils ont déjà un lien`) // note en liste à puces
+    expect(neutralizeFormula('=- Ils ont')).toBe(`'=- Ils ont`)
+    expect(neutralizeFormula('+1+1')).toBe(`'+1+1`)
+    expect(neutralizeFormula('+261 34 12 345 67')).toBe('+261 34 12 345 67')
+    expect(neutralizeFormula('-5')).toBe('-5')
   })
 
   it('CSV : BOM UTF-8, séparateur point-virgule et cellules neutralisées', () => {

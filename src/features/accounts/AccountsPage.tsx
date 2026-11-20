@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Download, Loader2, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +16,8 @@ import { RdvDialog } from '@/features/calls/RdvDialog'
 import { lastMeetingOf, useRdvCalls } from '@/features/calls/useRdvCalls'
 import { formatDateTime } from '@/lib/time'
 import type { Call } from '@/types/models'
+import { accountsCsv } from '@/lib/csv-export'
+import { useCsvDownload } from '@/components/useCsvDownload'
 
 // RDV affiché pour un compte : le contact, la date et l'appel qui l'a enregistré
 interface RdvItem {
@@ -115,6 +117,19 @@ export function AccountsPage() {
 
   const pg = paginate(rows, page, pageSize)
 
+  // Export CSV de toute la liste filtrée (pas seulement la page affichée)
+  const { busy: exporting, download } = useCsvDownload()
+  function exportCsv() {
+    void download(() => ({
+      csv: accountsCsv(rows, {
+        contactCount: (id) => contactCount.get(id) ?? 0,
+        rdvOf: (id) => rdvByAccount.get(id),
+        ownerEmail: teamView ? ownerEmail : undefined,
+      }),
+      name: filtersActive ? 'comptes-filtres' : 'comptes',
+    }))
+  }
+
   // Cellule Rendez-vous : le RDV ouvre son détail ; une fois passé, bouton pour le compte rendu
   function renderRdv(rdv: RdvItem | undefined) {
     if (!rdv) return '—'
@@ -153,14 +168,27 @@ export function AccountsPage() {
       <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Comptes</h1>
-          <p className="text-sm text-muted-foreground">{accounts.length} compte(s)</p>
+          <p className="text-sm text-muted-foreground">
+            {rows.length} sur {accounts.length} compte(s)
+          </p>
         </div>
-        {!teamView && (
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="size-4" aria-hidden />
-            Nouveau compte
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={exportCsv}
+            disabled={exporting || rows.length === 0}
+            title="Exporter en CSV les comptes de la liste filtrée"
+          >
+            {exporting ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Download className="size-4" aria-hidden />}
+            Exporter ({rows.length})
           </Button>
-        )}
+          {!teamView && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus className="size-4" aria-hidden />
+              Nouveau compte
+            </Button>
+          )}
+        </div>
       </header>
 
       <div className="flex flex-wrap gap-2">
