@@ -2,7 +2,7 @@ import { formatPhone } from '@/lib/phone'
 import type { Contact, ContactEmail, Phone } from '@/types/models'
 
 /**
- * Texte prêt à coller (CRM, email, note) : nom, prénom, titre, entreprise, numéros, email.
+ * Texte prêt à coller (CRM, email, note) : nom, prénom, titre, entreprise, numéros, email, LinkedIn.
  * Le numéro principal (bon numéro) est mis en premier.
  */
 export function buildContactCopyText(
@@ -27,5 +27,6 @@ export function buildContactCopyText(
   }
   const primaryEmail = emails.find((e) => e.isPrimary) ?? emails[0]
   lines.push(`Email : ${primaryEmail?.address ?? contact.email ?? '—'}`)
+  lines.push(`LinkedIn : ${contact.linkedinUrl?.trim() || '—'}`)
   return lines.join('\n')
 }

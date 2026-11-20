@@ -19,6 +19,7 @@ import { isNewContact } from '@/lib/new-contact'
 import { normalizeText, safeLinkedinUrl } from '@/lib/text'
 import { countryLabel } from '@/lib/geo'
 import { useListFilters } from '@/components/useListFilters'
+import { useStoredSort } from '@/components/useStoredSort'
 import { CONTACT_STATUSES, type Contact } from '@/types/models'
 import { Checkbox } from '@/components/ui/checkbox'
 import { endOfTomorrow, planCallSlots } from '@/lib/reminder'
@@ -36,7 +37,9 @@ export function ContactsPage() {
   const rdvByContact = useMemo(() => new Map([...rdvCalls].map(([id, call]) => [id, lastMeetingOf(call).at] as const)), [rdvCalls]) // dernier RDV pris par contact
   // Filtres dans l'URL : ils restent actifs au retour depuis une fiche
   const { text, list, flag, update, href } = useListFilters()
-  const accountSort = text('tri') === 'desc' ? 'desc' : 'asc'
+  // Tri mémorisé dans le navigateur : il reste le même au retour, même via le menu
+  const [storedSort, setAccountSort] = useStoredSort('contacts-compte', 'asc')
+  const accountSort = storedSort === 'desc' ? 'desc' : 'asc'
   const hideUpcoming = flag('masquer') // masque les contacts avec un RDV encore à venir
   const hidePlanned = flag('planifies') // masque les contacts déjà planifiés pour aujourd'hui ou demain (ou en retard)
   const filter = text('q')
@@ -47,7 +50,6 @@ export function ContactsPage() {
   const industries = list('industrie')
   // Vue admin uniquement : filtre par BDR propriétaire
   const owners = list('proprietaire')
-  const setAccountSort = (v: 'asc' | 'desc') => update({ tri: v === 'desc' ? 'desc' : null })
   const setHideUpcoming = (v: boolean) => update({ masquer: v ? '1' : null })
   const setHidePlanned = (v: boolean) => update({ planifies: v ? '1' : null })
   const setFilter = (v: string) => update({ q: v })

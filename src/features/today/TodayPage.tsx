@@ -16,6 +16,7 @@ import { listCallsSince } from '@/services/calls.repo'
 import { LastCallCell, useLastCalls } from '@/features/calls/useLastCalls'
 import { completeCadenceStep, setContactReminders } from '@/services/contacts.repo'
 import { Checkbox } from '@/components/ui/checkbox'
+import { useStoredSort } from '@/components/useStoredSort'
 import { toast } from 'sonner'
 import { safeLinkedinUrl } from '@/lib/text'
 import type { Contact } from '@/types/models'
@@ -37,6 +38,8 @@ export function TodayPage() {
   const [listPage, setListPage] = useState(1)
   // Liste affichée : aujourd'hui ou demain (une seule à la fois)
   const [day, setDay] = useState<'today' | 'tomorrow'>('today')
+  // Tri par compte : null = tri par heure de rappel (par défaut)
+  const [accountSort, setAccountSort] = useStoredSort('journee-compte', null)
 
   function toggleSelected(id: string) {
     setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
@@ -158,7 +161,18 @@ export function TodayPage() {
   const dateLabel = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
   const cadencePg = paginate(cadenceDue, cadencePage, pageSize)
-  const activeList = day === 'today' ? reminders : tomorrowReminders
+  const dayList = day === 'today' ? reminders : tomorrowReminders
+  // Les contacts d'un même compte se suivent, par heure de rappel. Sans compte : en bas de liste.
+  const activeList = useMemo(() => {
+    if (!accountSort) return dayList
+    const dir = accountSort === 'asc' ? 1 : -1
+    return [...dayList].sort((a, b) => {
+      const accountA = accountById(a.accountId)?.name ?? a.accountName ?? ''
+      const accountB = accountById(b.accountId)?.name ?? b.accountName ?? ''
+      if (!accountA !== !accountB) return accountA ? -1 : 1
+      return accountA.localeCompare(accountB, 'fr') * dir || a.nextReminderAt!.toMillis() - b.nextReminderAt!.toMillis()
+    })
+  }, [dayList, accountSort, accountById])
   const activePg = paginate(activeList, listPage, pageSize)
 
   function switchDay(next: 'today' | 'tomorrow') {
@@ -291,7 +305,20 @@ export function TodayPage() {
               {!teamView && <TableHead className="w-10" />}
               <TableHead className="w-28">Rappel</TableHead>
               <TableHead>Contact</TableHead>
-              <TableHead>Compte</TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccountSort(accountSort === null ? 'asc' : accountSort === 'asc' ? 'desc' : null)
+                    setListPage(1)
+                  }}
+                  className="inline-flex cursor-pointer items-center gap-1 font-medium hover:text-foreground"
+                  aria-label="Trier par compte"
+                  title={accountSort === 'desc' ? 'Revenir au tri par heure' : 'Trier par compte'}
+                >
+                  Compte {accountSort === 'asc' ? '↑' : accountSort === 'desc' ? '↓' : '↕'}
+                </button>
+              </TableHead>
               <TableHead>Statut</TableHead>
               <TableHead>Dernier appel</TableHead>
               <TableHead>Téléphones</TableHead>
