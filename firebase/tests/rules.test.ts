@@ -655,6 +655,43 @@ describe('Annuaire users (propriétaire affiché à l’admin)', () => {
     await assertFails(getDoc(doc(ctxFor(BDR_B), 'users', BDR_A.uid)))
   })
 
+  it("un BDR enregistre son objectif d'appels du jour sans effacer son email", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', BDR_A.uid), { email: BDR_A.email, updatedAt: Timestamp.now() })
+    })
+    await assertSucceeds(
+      setDoc(doc(ctxFor(BDR_A), 'users', BDR_A.uid), { dailyCallGoal: 40, updatedAt: serverTimestamp() }, { merge: true }),
+    )
+    // La reconnexion (merge) garde l'objectif
+    await assertSucceeds(
+      setDoc(doc(ctxFor(BDR_A), 'users', BDR_A.uid), { email: BDR_A.email, updatedAt: serverTimestamp() }, { merge: true }),
+    )
+  })
+
+  it("refuse un objectif hors limites, décimal ou en texte, et l'objectif d'un autre BDR", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', BDR_A.uid), { email: BDR_A.email, updatedAt: Timestamp.now() })
+      await setDoc(doc(ctx.firestore(), 'users', BDR_B.uid), { email: BDR_B.email, updatedAt: Timestamp.now() })
+    })
+    for (const dailyCallGoal of [0, 501, 12.5, '40']) {
+      await assertFails(
+        setDoc(doc(ctxFor(BDR_A), 'users', BDR_A.uid), { dailyCallGoal, updatedAt: serverTimestamp() }, { merge: true }),
+      )
+    }
+    await assertFails(
+      setDoc(doc(ctxFor(BDR_A), 'users', BDR_B.uid), { dailyCallGoal: 40, updatedAt: serverTimestamp() }, { merge: true }),
+    )
+  })
+
+  it("l'admin ne peut pas modifier l'objectif d'un BDR", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', BDR_A.uid), { email: BDR_A.email, updatedAt: Timestamp.now() })
+    })
+    await assertFails(
+      setDoc(doc(ctxFor(ADMIN), 'users', BDR_A.uid), { dailyCallGoal: 40, updatedAt: serverTimestamp() }, { merge: true }),
+    )
+  })
+
   it("un BDR ne peut pas supprimer son entrée", async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'users', BDR_A.uid), { email: BDR_A.email, updatedAt: Timestamp.now() })

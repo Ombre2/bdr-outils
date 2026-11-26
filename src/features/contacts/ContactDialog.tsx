@@ -20,6 +20,7 @@ interface Props {
   onOpenChange: (open: boolean) => void
   ownerId: string
   contact?: Contact
+  defaultAccountId?: string // création depuis la fiche d'un compte : compte pré-rempli
   onSaved: (contactId: string) => void
 }
 
@@ -59,7 +60,7 @@ function fromContact(c: Contact, phones: Phone[], emails: ContactEmail[]): Conta
 
 // Séparateurs d'emails dans une cellule : espace, ; , : / | ou retour à la ligne
 const EMAIL_SEPARATORS = /[\s:;,/|\n\r]+/
-export function ContactDialog({ open, onOpenChange, ownerId, contact, onSaved }: Props) {
+export function ContactDialog({ open, onOpenChange, ownerId, contact, defaultAccountId, onSaved }: Props) {
   const { accounts, accountById, phonesOf, emailsOf, refresh } = useDirectory()
   const [values, setValues] = useState<ContactFormValues>(EMPTY)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -68,12 +69,21 @@ export function ContactDialog({ open, onOpenChange, ownerId, contact, onSaved }:
 
   useEffect(() => {
     if (!open) return
-    setValues(contact ? fromContact(contact, phonesOf(contact.id), emailsOf(contact.id)) : EMPTY)
+    if (contact) {
+      setValues(fromContact(contact, phonesOf(contact.id), emailsOf(contact.id)))
+    } else {
+      const account = accountById(defaultAccountId || null)
+      setValues(
+        account
+          ? { ...EMPTY, accountId: account.id, country: account.country ?? '', city: account.city ?? '', timezone: account.timezone ?? '' }
+          : EMPTY,
+      )
+    }
     setErrors({})
     setStatusReason('')
     // phonesOf est recalculé à chaque chargement : on ne le suit pas pour ne pas écraser la saisie
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, contact])
+  }, [open, contact, defaultAccountId])
 
   function set<K extends keyof ContactFormValues>(key: K, value: ContactFormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }))

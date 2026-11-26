@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { ArrowLeft, ExternalLink, Pencil, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { backTarget } from '@/lib/url-filters'
 import { toast } from 'sonner'
@@ -9,6 +9,7 @@ import { LocalTime } from '@/components/LocalTime'
 import { AccountDialog } from '@/features/accounts/AccountDialog'
 import { CallTimeline } from '@/features/calls/CallTimeline'
 import { ContactDetailView } from '@/features/contacts/ContactDetailPage'
+import { ContactDialog } from '@/features/contacts/ContactDialog'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { countryLabel } from '@/lib/geo'
@@ -25,6 +26,7 @@ export function AccountDetailPage() {
   const { user } = useAuth()
   const { accountById, contacts, refresh, loading, teamView, ownerEmail } = useDirectory()
   const [editing, setEditing] = useState(false)
+  const [addingContact, setAddingContact] = useState(false)
   // Onglets ouverts : l'onglet « Compte » plus un onglet par contact ouvert
   const [openContactIds, setOpenContactIds] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<string>(ACCOUNT_TAB)
@@ -167,7 +169,14 @@ export function AccountDetailPage() {
           </dl>
 
           <div className="space-y-2">
-            <h2 className="text-sm font-medium">Contacts ({linkedContacts.length})</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-medium">Contacts ({linkedContacts.length})</h2>
+              {!teamView && (
+                <Button variant="outline" size="sm" onClick={() => setAddingContact(true)}>
+                  <Plus className="size-4" aria-hidden /> Ajouter un contact
+                </Button>
+              )}
+            </div>
             <div className="rounded-md border border-border">
               <Table>
                 <TableHeader>
@@ -212,6 +221,17 @@ export function AccountDetailPage() {
         ownerId={user?.uid ?? ''}
         account={account}
         onSaved={() => void refresh()}
+      />
+
+      <ContactDialog
+        open={addingContact}
+        onOpenChange={setAddingContact}
+        ownerId={user?.uid ?? ''}
+        defaultAccountId={account.id}
+        onSaved={(contactId) => {
+          toast.success(`Contact ajouté au compte « ${account.name} ».`)
+          openContact(contactId)
+        }}
       />
     </section>
   )

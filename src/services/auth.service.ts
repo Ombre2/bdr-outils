@@ -36,7 +36,8 @@ export async function getAllowlistRole(email: string): Promise<string | null> {
 
 /** Annuaire : associe l'identifiant du compte à son email, pour afficher le propriétaire aux admins. */
 export async function saveUserDirectoryEntry(uid: string, email: string): Promise<void> {
-  await setDoc(doc(db, 'users', uid), { email: email.trim().toLowerCase(), updatedAt: serverTimestamp() })
+  // merge : ne pas effacer l'objectif d'appels du jour enregistré dans la même entrée
+  await setDoc(doc(db, 'users', uid), { email: email.trim().toLowerCase(), updatedAt: serverTimestamp() }, { merge: true })
 }
 
 export async function logout(): Promise<void> {

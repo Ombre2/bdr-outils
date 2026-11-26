@@ -402,9 +402,14 @@ service cloud.firestore {
 
       allow create, update: if isAuthorized()
         && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['email', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['email', 'updatedAt', 'dailyCallGoal'])
         && request.resource.data.email == request.auth.token.email.lower()
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.updatedAt == request.time
+        // Objectif d'appels du jour (facultatif) : entier entre 1 et 500, comme src/lib/daily-goal.ts
+        && (!('dailyCallGoal' in request.resource.data)
+          || (request.resource.data.dailyCallGoal is int
+            && request.resource.data.dailyCallGoal >= 1
+            && request.resource.data.dailyCallGoal <= 500));
 
       allow delete: if false;
     }

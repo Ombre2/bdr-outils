@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planCallSlots } from '@/lib/reminder'
+import { planCallSlots, reminderDayLabel } from '@/lib/reminder'
 
 describe('planCallSlots', () => {
   it('aujourd’hui : commence à la minute suivante, un appel par minute, dans l’ordre', () => {
@@ -23,5 +23,14 @@ describe('planCallSlots', () => {
 
   it('liste vide : aucun créneau', () => {
     expect(planCallSlots(0, 'today')).toEqual([])
+  })
+})
+
+describe('reminderDayLabel', () => {
+  const now = new Date(2026, 10, 26, 10, 0)
+  it('aujourd’hui, demain ou date', () => {
+    expect(reminderDayLabel(new Date(2026, 10, 26, 14, 32), now)).toBe('aujourd’hui à 14:32')
+    expect(reminderDayLabel(new Date(2026, 10, 27, 9, 0), now)).toBe('demain à 09:00')
+    expect(reminderDayLabel(new Date(2026, 10, 28, 9, 0), now)).toBe('le 28/11 à 09:00')
   })
 })

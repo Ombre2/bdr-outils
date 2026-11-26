@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, Copy, Loader2, PhoneCall, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, CalendarClock, Check, ChevronDown, Copy, Loader2, PhoneCall, Pencil, Plus, Trash2 } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { planCallSlots, reminderDayLabel } from '@/lib/reminder'
 import { buildContactCopyText } from '@/lib/contact-copy'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { backTarget } from '@/lib/url-filters'
@@ -22,7 +24,7 @@ import { formatDateTime } from '@/lib/time'
 import { callHref, formatPhone } from '@/lib/phone'
 import { safeLinkedinUrl } from '@/lib/text'
 import { CONTACT_STATUSES, PHONE_LABELS, STATUSES_REQUIRING_REASON, type ContactStatus, type StatusChange } from '@/types/models'
-import { completeCadenceStep, deleteContact, setContactCadence, setContactStatus, setPrimaryPhone } from '@/services/contacts.repo'
+import { completeCadenceStep, deleteContact, setContactCadence, setContactReminders, setContactStatus, setPrimaryPhone } from '@/services/contacts.repo'
 import { listStatusChanges } from '@/services/status-history.repo'
 import { deleteActivity, listActivities } from '@/services/activities.repo'
 import type { Activity } from '@/types/models'
@@ -53,6 +55,7 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
   const [activityOpen, setActivityOpen] = useState(false)
   const [cadenceChoice, setCadenceChoice] = useState('')
   const [cadenceBusy, setCadenceBusy] = useState(false)
+  const [planning, setPlanning] = useState(false)
 
   const phoneItems = useRef(new Map<string, HTMLLIElement>())
   const previousTops = useRef(new Map<string, number>())
@@ -136,6 +139,21 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
   // Tout changement de statut passe par la saisie du motif (obligatoire pour certains statuts)
   function changeStatus(status: ContactStatus) {
     setPendingStatus(status)
+  }
+
+  // Place le contact dans « Ma Journée » : aujourd'hui (dans une minute) ou demain à 9h
+  async function planCall(day: 'today' | 'tomorrow') {
+    setPlanning(true)
+    try {
+      const [at] = planCallSlots(1, day)
+      await setContactReminders([{ contact: contact!, at }])
+      await refresh()
+      toast.success(`Appel planifié ${reminderDayLabel(at)}. Il apparaît dans Ma Journée.`)
+    } catch {
+      toast.error('Impossible de planifier l’appel. Réessayez.')
+    } finally {
+      setPlanning(false)
+    }
   }
 
   async function copyContactInfo() {
@@ -250,6 +268,12 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
               {contact.status}
             </Badge>
             {isNewContact(contact.createdAt, now) && <Badge className="font-normal">Nouveau</Badge>}
+            {contact.nextReminderAt && (
+              <Badge variant="outline" className="gap-1 border-primary/40 font-normal text-primary">
+                <CalendarClock className="size-3" aria-hidden />
+                Appel prévu {reminderDayLabel(contact.nextReminderAt.toDate())}
+              </Badge>
+            )}
           </div>
           {teamView && <p className="text-sm text-muted-foreground">Propriétaire : {ownerEmail(contact.ownerId) ?? '—'}</p>}
         </div>
@@ -268,6 +292,23 @@ export function ContactDetailView({ id, embedded = false, onDeleted }: ContactDe
           />
           {!teamView && (
             <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={planning}>
+                    {planning ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <CalendarClock className="size-4" aria-hidden />}
+                    Planifier l’appel
+                    <ChevronDown className="size-4" aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem className="cursor-pointer" onSelect={() => void planCall('today')}>
+                    Aujourd’hui
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer" onSelect={() => void planCall('tomorrow')}>
+                    Demain (9h)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button size="sm" onClick={() => setLogging(true)}>
                 <PhoneCall className="size-4" aria-hidden /> Logger un appel
               </Button>

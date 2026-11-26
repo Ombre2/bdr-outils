@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
-import { PhoneCall } from 'lucide-react'
+import { Building2, ClipboardPlus, Clock, PhoneCall } from 'lucide-react'
 import { Link } from 'react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,8 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useDirectory } from '@/features/directory/DirectoryProvider'
 import { LogCallDialog } from '@/features/calls/LogCallDialog'
+import { DailyGoal } from '@/features/today/DailyGoal'
 import { callHref, formatPhone } from '@/lib/phone'
-import { endOfToday, endOfTomorrow, startOfToday } from '@/lib/reminder'
+import { endOfToday, endOfTomorrow, planCallSlots, startOfToday } from '@/lib/reminder'
 import { nextCadenceStep } from '@/lib/cadence'
 import { localTimeLabel } from '@/lib/time'
 import { listCallsSince } from '@/services/calls.repo'
@@ -57,6 +58,24 @@ export function TodayPage() {
       await refresh()
     } catch {
       toast.error('Impossible de retirer les contacts. Réessayez.')
+    } finally {
+      setRemoving(false)
+    }
+  }
+
+  // Replanifie la sélection pour demain à partir de 9h, en gardant l'ordre de la liste affichée
+  async function rescheduleToTomorrow() {
+    const chosen = activeList.filter((c) => selectedIds.includes(c.id))
+    if (chosen.length === 0) return
+    setRemoving(true)
+    try {
+      const slots = planCallSlots(chosen.length, 'tomorrow')
+      await setContactReminders(chosen.map((contact, i) => ({ contact, at: slots[i] })))
+      toast.success(`${chosen.length} appel(s) replanifié(s) pour demain.`)
+      setSelectedIds([])
+      await refresh()
+    } catch {
+      toast.error('Impossible de replanifier les appels. Réessayez.')
     } finally {
       setRemoving(false)
     }
@@ -211,7 +230,7 @@ export function TodayPage() {
           <Stat label="À rappeler" value={reminders.length} />
           <Stat label="En retard" value={overdueCount} warn={overdueCount > 0} />
           <Stat label="Demain" value={tomorrowReminders.length} />
-          <Stat label="Appels aujourd'hui" value={callsToday ?? '—'} />
+          {user && <DailyGoal uid={user.uid} callsToday={callsToday} readOnly={teamView} />}
         </div>
       </header>
 
@@ -220,6 +239,11 @@ export function TodayPage() {
           <span className="font-medium">{selectedIds.length} sélectionné(s)</span>
           <span className="text-xs text-muted-foreground">Ils restent dans Contacts, seul leur rappel est retiré.</span>
           <div className="ml-auto flex flex-wrap gap-2">
+            {day === 'today' && (
+              <Button size="sm" onClick={() => void rescheduleToTomorrow()} disabled={removing}>
+                {removing ? 'Enregistrement…' : 'Replanifier pour demain'}
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => void removeFromList()} disabled={removing}>
               {removing ? 'Retrait…' : 'Retirer de la liste'}
             </Button>
@@ -297,6 +321,18 @@ export function TodayPage() {
           <Button size="sm" variant={day === 'tomorrow' ? 'default' : 'outline'} aria-pressed={day === 'tomorrow'} onClick={() => switchDay('tomorrow')}>
             Demain ({tomorrowReminders.length})
           </Button>
+          <Button
+            size="sm"
+            variant={accountSort ? 'secondary' : 'ghost'}
+            className="ml-auto"
+            onClick={() => {
+              setAccountSort(accountSort === null ? 'asc' : accountSort === 'asc' ? 'desc' : null)
+              setListPage(1)
+            }}
+            title={accountSort === 'desc' ? 'Revenir au tri par heure' : 'Trier par compte'}
+          >
+            Trier par compte {accountSort === 'asc' ? '↑' : accountSort === 'desc' ? '↓' : '↕'}
+          </Button>
         </div>
       <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border">
         <Table>
@@ -305,24 +341,9 @@ export function TodayPage() {
               {!teamView && <TableHead className="w-10" />}
               <TableHead className="w-28">Rappel</TableHead>
               <TableHead>Contact</TableHead>
-              <TableHead>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAccountSort(accountSort === null ? 'asc' : accountSort === 'asc' ? 'desc' : null)
-                    setListPage(1)
-                  }}
-                  className="inline-flex cursor-pointer items-center gap-1 font-medium hover:text-foreground"
-                  aria-label="Trier par compte"
-                  title={accountSort === 'desc' ? 'Revenir au tri par heure' : 'Trier par compte'}
-                >
-                  Compte {accountSort === 'asc' ? '↑' : accountSort === 'desc' ? '↓' : '↕'}
-                </button>
-              </TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Dernier appel</TableHead>
               <TableHead>Téléphones</TableHead>
-              <TableHead className="w-28 text-right">Action</TableHead>
+              <TableHead>Dernier appel</TableHead>
+              <TableHead className="sticky right-0 w-px border-l border-border bg-background text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -335,7 +356,7 @@ export function TodayPage() {
                   data-reminder-row
                   tabIndex={0}
                   onKeyDown={(e) => onRowKeyDown(e, c)}
-                  className="focus-visible:bg-accent focus-visible:outline-none"
+                  className="group focus-visible:bg-accent focus-visible:outline-none"
                 >
                   {!teamView && (
                     <TableCell>
@@ -351,28 +372,46 @@ export function TodayPage() {
                       {reminderLabel(c.nextReminderAt!.toDate(), c.timezone, overdue || day === 'tomorrow')}
                     </span>
                     {overdue && <Badge variant="outline" className="ml-2 border-destructive/40 font-normal text-destructive">Retard</Badge>}
+                    {/* Heure actuelle chez le contact, juste sous l'heure prévue : aide à choisir le bon moment */}
+                    {c.timezone && (
+                      <p className="text-xs text-muted-foreground" title="Heure actuelle chez le contact">
+                        <Clock className="mr-1 inline size-3 align-[-2px]" aria-hidden />
+                        {localTimeLabel(c.timezone)}
+                      </p>
+                    )}
                   </TableCell>
+                  {/* Deux lignes maximum pour garder des lignes basses : nom + statut, puis compte · poste */}
                   <TableCell>
-                    <Link to={`/contacts/${c.id}`} state={{ from: '/today' }} className="font-medium hover:underline">
-                      {c.firstName} {c.lastName}
-                    </Link>
-                    {linkedinBadge(c)}
+                    <div className="flex items-center gap-1.5">
+                      <Link to={`/contacts/${c.id}`} state={{ from: '/today' }} className="font-medium hover:underline">
+                        {c.firstName} {c.lastName}
+                      </Link>
+                      {linkedinBadge(c)}
+                      <Badge variant="outline" className="px-1.5 py-0 text-[11px] font-normal">
+                        {c.status}
+                      </Badge>
+                    </div>
+                    {/* Compte mis en avant (icône + texte foncé), poste en gris */}
                     <p className="text-xs text-muted-foreground">
-                      {c.title ?? ''}
-                      {c.timezone ? ` · ${localTimeLabel(c.timezone)}` : ''}
+                      {(() => {
+                        const accountName = accountById(c.accountId)?.name ?? c.accountName
+                        return (
+                          <>
+                            {accountName && (
+                              <span className="font-medium text-foreground">
+                                <Building2 className="mr-1 inline size-3 align-[-2px]" aria-hidden />
+                                {accountName}
+                              </span>
+                            )}
+                            {accountName && c.title && ' · '}
+                            {c.title && <span className="italic">{c.title}</span>}
+                          </>
+                        )
+                      })()}
                     </p>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {accountById(c.accountId)?.name ?? c.accountName ?? '—'}
-                  </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="font-normal">
-                      {c.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell><LastCallCell call={lastCalls.get(c.id)} contact={c} /></TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex gap-1.5">
                       {phones.map((p) => {
                         const href = callHref(p.number)
                         return href ? (
@@ -390,9 +429,17 @@ export function TodayPage() {
                       {phones.length === 0 && <span className="text-xs text-muted-foreground">Aucun numéro</span>}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Button size="sm" onClick={() => setLogFor(c)} disabled={teamView}>
-                      Logger
+                  <TableCell><LastCallCell call={lastCalls.get(c.id)} contact={c} /></TableCell>
+                  {/* Colonne fixée à droite : « Logger » reste visible sur un petit écran */}
+                  <TableCell className="sticky right-0 border-l border-border bg-background text-right group-hover:bg-muted group-focus-visible:bg-accent">
+                    <Button
+                      size="icon-sm"
+                      onClick={() => setLogFor(c)}
+                      disabled={teamView}
+                      title="Logger un appel"
+                      aria-label={`Logger un appel avec ${c.firstName} ${c.lastName}`}
+                    >
+                      <ClipboardPlus className="size-4" aria-hidden />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -400,7 +447,7 @@ export function TodayPage() {
             })}
             {!loading && activeList.length === 0 && (
               <TableRow>
-                <TableCell colSpan={teamView ? 7 : 8} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={teamView ? 5 : 6} className="py-10 text-center text-muted-foreground">
                   {day === 'today' ? 'Aucun rappel pour aujourd’hui. Bonne prospection.' : 'Aucun appel planifié pour demain.'}
                 </TableCell>
               </TableRow>

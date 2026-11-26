@@ -85,6 +85,16 @@ export function planCallSlots(count: number, day: 'today' | 'tomorrow', now: Dat
   return Array.from({ length: count }, (_, i) => new Date(start.getTime() + i * 60_000))
 }
 
+/** Libellé court d'un rappel, heure de l'appareil : « aujourd’hui à 14:32 », « demain à 09:00 » ou « le 28/11 à 09:00 ». */
+export function reminderDayLabel(date: Date, now: Date = new Date()): string {
+  const time = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(date)
+  const ms = date.getTime()
+  if (ms >= startOfToday(now).getTime() && ms <= endOfToday(now).getTime()) return `aujourd’hui à ${time}`
+  if (ms > endOfToday(now).getTime() && ms <= endOfTomorrow(now).getTime()) return `demain à ${time}`
+  const day = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit' }).format(date)
+  return `le ${day} à ${time}`
+}
+
 export function startOfToday(now: Date = new Date()): Date {
   const start = new Date(now)
   start.setHours(0, 0, 0, 0)
