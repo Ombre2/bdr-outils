@@ -34,6 +34,7 @@ export const COUNTRIES: CountryOption[] = [
   { code: 'GB', name: 'Royaume-Uni', timezone: 'Europe/London' },
   { code: 'CA', name: 'Canada', timezone: 'America/Toronto' },
   { code: 'US', name: 'États-Unis', timezone: 'America/New_York' },
+  { code: 'KE', name: 'Kenya', timezone: 'Africa/Nairobi' },
 ]
 
 export function countryByCode(code: string | null | undefined): CountryOption | undefined {
